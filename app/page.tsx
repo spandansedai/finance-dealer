@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 export default function HomePage() {
   // Dummy metrics for v0.1 placeholder
-  const dummyIncome = 16500;
+  const dummyIncome = 59213;
   const dummyExpenses = 19500;
   const dummyNetSavings = calculateNetSavings(dummyIncome, dummyExpenses);
   const dummySavingsRate = calculateSavingsRate(dummyIncome, dummyExpenses);
