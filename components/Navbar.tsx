@@ -23,7 +23,7 @@ export const Navbar = () => {
             </span>
             <span>FinanceDealer</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
-              v0.2
+              v0.3
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
@@ -72,7 +72,7 @@ export const Navbar = () => {
 
         <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>NEPSE Engine Ready</span>
+          <span>Savings Engine Ready</span>
         </div>
       </div>
     </header>

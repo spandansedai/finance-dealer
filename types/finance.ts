@@ -6,6 +6,14 @@ export interface FinancialMetric {
   trend?: 'up' | 'down' | 'neutral';
 }
 
+export interface SavingsSummary {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlySavings: number;
+  savingsRate: number;
+  annualSavings: number;
+}
+
 export type TransactionType = 'income' | 'expense';
 
 export type IncomeCategory =
