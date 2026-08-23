@@ -22,8 +22,8 @@ export const Navbar = () => {
               FD
             </span>
             <span>FinanceDealer</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
-              v0.3
+            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-400 font-semibold border border-purple-300 dark:border-purple-800">
+              v0.4
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
@@ -68,11 +68,19 @@ export const Navbar = () => {
           >
             Expenses
           </Link>
+          <Link
+            href="/portfolio"
+            className={`px-2.5 py-1 rounded-md ${
+              pathname.startsWith('/portfolio') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+            }`}
+          >
+            Portfolio
+          </Link>
         </div>
 
         <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Savings Engine Ready</span>
+          <span className="inline-block h-2 w-2 rounded-full bg-purple-500 animate-pulse"></span>
+          <span>Portfolio Engine v0.4 Ready</span>
         </div>
       </div>
     </header>
