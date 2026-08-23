@@ -6,6 +6,46 @@ export interface FinancialMetric {
   trend?: 'up' | 'down' | 'neutral';
 }
 
+export interface SavingsSummary {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlySavings: number;
+  savingsRate: number;
+  annualSavings: number;
+}
+
+export type TransactionType = 'income' | 'expense';
+
+export type IncomeCategory =
+  | 'Salary'
+  | 'Side Hustle'
+  | 'Bonus / Allowance'
+  | 'Dividend & Returns'
+  | 'Freelance'
+  | 'Other Income';
+
+export type ExpenseCategory =
+  | 'Rent'
+  | 'Food & Groceries'
+  | 'Utilities'
+  | 'Entertainment'
+  | 'Transportation'
+  | 'Healthcare'
+  | 'Shopping'
+  | 'Education'
+  | 'Other Expense';
+
+export type TransactionCategory = IncomeCategory | ExpenseCategory | string;
+
+export interface Transaction {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  category: TransactionCategory;
+  description: string;
+  date: string;
+}
+
 export interface IncomeItem {
   id: string;
   source: string;
