@@ -96,3 +96,16 @@ export interface PortfolioAnalyticsSummary {
   totalProfitLossPercentage: number;
   holdings: HoldingAnalytics[];
 }
+
+export interface OverallFinancialSummary {
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlySavings: number;
+  savingsRate: number;
+  annualSavings: number;
+  totalInvested: number;
+  totalCurrentValue: number;
+  totalProfitLoss: number;
+  totalProfitLossPercentage: number;
+  totalLiquidAndAssets: number;
+}

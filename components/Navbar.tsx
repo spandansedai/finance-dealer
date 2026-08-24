@@ -23,7 +23,7 @@ export const Navbar = () => {
             </span>
             <span>FinanceDealer</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
-              v0.3
+              v0.6
             </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
@@ -55,7 +55,7 @@ export const Navbar = () => {
           <Link
             href="/"
             className={`px-2.5 py-1 rounded-md ${
-              pathname === '/' ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+              pathname === '/' || pathname === '/dashboard' ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
             Dashboard
@@ -68,11 +68,19 @@ export const Navbar = () => {
           >
             Expenses
           </Link>
+          <Link
+            href="/portfolio"
+            className={`px-2.5 py-1 rounded-md ${
+              pathname.startsWith('/portfolio') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+            }`}
+          >
+            Portfolio
+          </Link>
         </div>
 
         <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Savings Engine Ready</span>
+          <span>Unified Financial Engine Active</span>
         </div>
       </div>
     </header>

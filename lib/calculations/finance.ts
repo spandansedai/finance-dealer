@@ -1,5 +1,6 @@
 import {
   HoldingAnalytics,
+  OverallFinancialSummary,
   PortfolioAnalyticsSummary,
   SavingsSummary,
   StockHolding,
@@ -272,6 +273,31 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
     totalProfitLoss,
     totalProfitLossPercentage,
     holdings: analyzedHoldings,
+  };
+}
+
+/* ==========================================================================
+   V0.6: Overall Financial Summary Pure Engine
+   ========================================================================== */
+
+/**
+ * Calculates complete cross-domain financial summary
+ */
+export function calculateOverallFinancialSummary(
+  monthlyIncome: number,
+  monthlyExpenses: number,
+  holdings: StockHolding[]
+): OverallFinancialSummary {
+  const savingsSummary = calculateSavingsSummary(monthlyIncome, monthlyExpenses);
+  const portfolioSummary = calculatePortfolioAnalytics(holdings);
+
+  return {
+    ...savingsSummary,
+    totalInvested: portfolioSummary.totalInvested,
+    totalCurrentValue: portfolioSummary.totalCurrentValue,
+    totalProfitLoss: portfolioSummary.totalProfitLoss,
+    totalProfitLossPercentage: portfolioSummary.totalProfitLossPercentage,
+    totalLiquidAndAssets: savingsSummary.annualSavings + portfolioSummary.totalCurrentValue,
   };
 }
 
