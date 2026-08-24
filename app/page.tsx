@@ -43,7 +43,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Financial Overview</h1>
               <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.3 Active
+                v0.5 Active
               </span>
             </div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -332,18 +332,18 @@ export default function HomePage() {
 
             <Link
               href="/portfolio"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-purple-500/50 dark:hover:border-purple-500/50 transition group shadow-xs"
+              className="p-6 rounded-2xl border border-emerald-500/30 dark:border-emerald-500/30 bg-white dark:bg-zinc-900 hover:border-emerald-500 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+                <h3 className="text-base font-semibold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                   NEPSE Stock Portfolio →
                 </h3>
-                <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold">
-                  Planned
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold">
+                  Ready
                 </span>
               </div>
               <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                Monitor stock holdings, live LTP updates, and pure math gain/loss metrics.
+                Monitor stock holdings, manual current price updates, and pure math gain/loss metrics.
               </p>
             </Link>
           </div>

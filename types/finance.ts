@@ -63,10 +63,36 @@ export interface ExpenseItem {
 }
 
 export interface StockHolding {
+  id?: string;
   symbol: string;
   companyName: string;
-  units: number;
-  buyPrice: number;
+  shares: number;
+  averagePurchasePrice: number;
   currentPrice: number;
   sector?: string;
+  units?: number;
+  buyPrice?: number;
+}
+
+export interface HoldingAnalytics {
+  id: string;
+  symbol: string;
+  companyName: string;
+  shares: number;
+  averagePurchasePrice: number;
+  currentPrice: number;
+  investedAmount: number;
+  currentValue: number;
+  profitLoss: number;
+  profitLossPercentage: number;
+  portfolioWeightPercentage: number;
+  sector?: string;
+}
+
+export interface PortfolioAnalyticsSummary {
+  totalInvested: number;
+  totalCurrentValue: number;
+  totalProfitLoss: number;
+  totalProfitLossPercentage: number;
+  holdings: HoldingAnalytics[];
 }
