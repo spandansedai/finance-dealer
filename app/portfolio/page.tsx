@@ -180,12 +180,12 @@ export default function PortfolioPage() {
   });
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 NEPSE Portfolio Analytics
               </h1>
@@ -193,28 +193,28 @@ export default function PortfolioPage() {
                 v0.5 Active
               </span>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
               Track stock holdings, manually entered current prices, invested capital, current valuation, and profit/loss metrics.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={handleLoadNabilTest}
-              className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-xs"
+              className="px-3 py-2 text-xs font-semibold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-xs cursor-pointer"
             >
-              🧪 Load NABIL Test Case
+              🧪 NABIL Test
             </button>
             <button
               type="button"
               onClick={handleResetSample}
-              className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition shadow-xs"
+              className="px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition shadow-xs cursor-pointer"
             >
-              Load Sample Data
+              Sample Data
             </button>
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
             >
               <span>←</span>
               <span>Dashboard</span>
@@ -223,10 +223,10 @@ export default function PortfolioPage() {
         </div>
 
         {/* Portfolio Summary Metrics (Totals) */}
-        <section className="space-y-4">
+        <section className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
                 Portfolio Totals &amp; Performance
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -238,7 +238,7 @@ export default function PortfolioPage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* 1. Total Invested */}
             <MetricCard
               label="Total Invested"
@@ -255,7 +255,7 @@ export default function PortfolioPage() {
               amount={totalCurrentValue}
               currency="Rs."
               type="neutral"
-              badgeText="Market Valuation"
+              badgeText={`${holdings.length} Stocks`}
               subtitle="Sum of shares × current price"
             />
 
@@ -310,7 +310,7 @@ export default function PortfolioPage() {
                   <span>✅</span>
                   <span>V0.5 Test Case Active: NABIL (100 shares @ Rs. 500 buy, Rs. 600 current)</span>
                 </div>
-                <div className="text-purple-700 dark:text-purple-300 font-mono">
+                <div className="text-purple-700 dark:text-purple-300 font-mono text-[11px] sm:text-xs">
                   Invested: <strong>Rs. 50,000</strong> | Current Value: <strong>Rs. 60,000</strong> | Profit: <strong>Rs. 10,000</strong> | Return: <strong>20.00%</strong>
                 </div>
               </div>
@@ -322,11 +322,11 @@ export default function PortfolioPage() {
         </section>
 
         {/* Main Content: Add Stock Holding Form + Holdings Table */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           {/* Add Stock Holding Form */}
-          <div className="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
                 Add Stock Holding
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
@@ -353,7 +353,7 @@ export default function PortfolioPage() {
                   value={symbol}
                   onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                   required
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-semibold uppercase text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm font-semibold uppercase text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 />
               </div>
 
@@ -368,7 +368,7 @@ export default function PortfolioPage() {
                   placeholder="e.g. Nabil Bank Limited"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 />
               </div>
 
@@ -386,7 +386,7 @@ export default function PortfolioPage() {
                   value={shares}
                   onChange={(e) => setShares(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
                 />
               </div>
 
@@ -408,7 +408,7 @@ export default function PortfolioPage() {
                     value={averagePurchasePrice}
                     onChange={(e) => setAveragePurchasePrice(e.target.value)}
                     required
-                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
+                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
                   />
                 </div>
               </div>
@@ -431,7 +431,7 @@ export default function PortfolioPage() {
                     value={currentPrice}
                     onChange={(e) => setCurrentPrice(e.target.value)}
                     required
-                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
+                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition font-mono"
                   />
                 </div>
               </div>
@@ -439,7 +439,7 @@ export default function PortfolioPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 transition shadow-sm"
+                className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 transition shadow-sm active:scale-98 cursor-pointer"
               >
                 + Add Stock Holding
               </button>
@@ -449,10 +449,10 @@ export default function PortfolioPage() {
           {/* Holdings Analytics Table */}
           <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs overflow-hidden space-y-0">
             {/* Table Header & Search */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 space-y-4">
+            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 space-y-3 sm:space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     Stock Holdings &amp; Analytics
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -463,10 +463,10 @@ export default function PortfolioPage() {
                 <div className="w-full sm:w-64">
                   <input
                     type="text"
-                    placeholder="Search by symbol or company..."
+                    placeholder="Search symbol or company..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                    className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-base sm:text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
               </div>
@@ -474,7 +474,7 @@ export default function PortfolioPage() {
 
             {/* Table */}
             {filteredHoldings.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
+              <div className="p-8 sm:p-12 text-center space-y-3">
                 <div className="text-3xl">📊</div>
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                   No stock holdings found
@@ -485,16 +485,16 @@ export default function PortfolioPage() {
                     : 'No holdings match your search query.'}
                 </p>
                 {holdings.length === 0 && (
-                  <div className="flex items-center justify-center gap-2 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
                     <button
                       onClick={handleLoadNabilTest}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-200 transition"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-200 transition cursor-pointer"
                     >
                       Load NABIL Test Case
                     </button>
                     <button
                       onClick={handleResetSample}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 transition"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 transition cursor-pointer"
                     >
                       Load Sample Data
                     </button>
@@ -502,20 +502,20 @@ export default function PortfolioPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full min-w-[700px] text-left text-sm">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-medium border-b border-zinc-200 dark:border-zinc-800">
                     <tr>
-                      <th scope="col" className="py-3.5 px-4">Symbol / Company</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Shares</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Avg. Price</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Current Price</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Invested</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Current Value</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Profit / Loss</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">Return %</th>
-                      <th scope="col" className="py-3.5 px-4 text-right">% Portfolio</th>
-                      <th scope="col" className="py-3.5 px-4 text-center">Action</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4">Symbol / Company</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Shares</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Avg. Price</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Current Price</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Invested</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Current Value</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Profit / Loss</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">Return %</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-right">% Weight</th>
+                      <th scope="col" className="py-3.5 px-3 sm:px-4 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
@@ -530,29 +530,29 @@ export default function PortfolioPage() {
                           className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors group"
                         >
                           {/* Symbol & Company */}
-                          <td className="py-3.5 px-4">
+                          <td className="py-3.5 px-3 sm:px-4">
                             <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                               <span className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-700">
                                 {item.symbol}
                               </span>
                             </div>
-                            <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[140px] mt-0.5">
+                            <div className="text-xs text-zinc-500 dark:text-zinc-400 truncate max-w-[130px] mt-0.5">
                               {item.companyName}
                             </div>
                           </td>
 
                           {/* Shares */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 whitespace-nowrap">
                             {new Intl.NumberFormat('en-NP').format(item.shares)}
                           </td>
 
                           {/* Average Purchase Price */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
                             {formatNepaliCurrency(item.averagePurchasePrice)}
                           </td>
 
                           {/* Current Price (with inline edit) */}
-                          <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right whitespace-nowrap">
                             {isEditingThis ? (
                               <div className="inline-flex items-center gap-1">
                                 <input
@@ -572,7 +572,7 @@ export default function PortfolioPage() {
                                   type="button"
                                   onClick={() => handleSavePriceEdit(item.id)}
                                   title="Save price"
-                                  className="px-1.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                                  className="px-1.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
                                 >
                                   ✓
                                 </button>
@@ -580,7 +580,7 @@ export default function PortfolioPage() {
                                   type="button"
                                   onClick={handleCancelPriceEdit}
                                   title="Cancel"
-                                  className="px-1.5 py-1 rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 text-zinc-700 dark:text-zinc-300 text-xs"
+                                  className="px-1.5 py-1 rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 text-zinc-700 dark:text-zinc-300 text-xs cursor-pointer"
                                 >
                                   ✕
                                 </button>
@@ -600,17 +600,17 @@ export default function PortfolioPage() {
                           </td>
 
                           {/* Invested Amount */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
                             {formatNepaliCurrency(item.investedAmount)}
                           </td>
 
                           {/* Current Value */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                             {formatNepaliCurrency(item.currentValue)}
                           </td>
 
                           {/* Profit / Loss */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm font-bold whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm font-bold whitespace-nowrap">
                             <span
                               className={
                                 isProfit
@@ -625,7 +625,7 @@ export default function PortfolioPage() {
                           </td>
 
                           {/* Profit / Loss % */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs sm:text-sm font-bold whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs sm:text-sm font-bold whitespace-nowrap">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
                                 isProfit
@@ -641,9 +641,9 @@ export default function PortfolioPage() {
                           </td>
 
                           {/* Percentage of Portfolio Value */}
-                          <td className="py-3.5 px-4 text-right font-mono text-xs whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono text-xs whitespace-nowrap">
                             <div className="flex items-center justify-end gap-1.5">
-                              <div className="w-12 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden hidden sm:block">
+                              <div className="w-10 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden hidden sm:block">
                                 <div
                                   className="h-full bg-emerald-500 rounded-full"
                                   style={{ width: `${Math.min(100, Math.max(0, item.portfolioWeightPercentage))}%` }}
@@ -656,11 +656,11 @@ export default function PortfolioPage() {
                           </td>
 
                           {/* Action (Delete) */}
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
                             <button
                               onClick={() => handleDeleteHolding(item.id)}
                               title="Delete Holding"
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors inline-flex items-center justify-center"
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors inline-flex items-center justify-center cursor-pointer"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -688,28 +688,28 @@ export default function PortfolioPage() {
 
             {/* Table Footer Summary Bar */}
             {filteredHoldings.length > 0 && (
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-                <div className="flex flex-wrap items-center gap-4">
+              <div className="p-3.5 sm:p-4 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                   <span>
-                    Total Holdings:{' '}
+                    Holdings:{' '}
                     <strong className="text-zinc-900 dark:text-zinc-100">
                       {holdings.length}
                     </strong>
                   </span>
                   <span>
-                    Total Cost Basis:{' '}
+                    Cost:{' '}
                     <strong className="text-zinc-900 dark:text-zinc-100">
                       {formatNepaliCurrency(totalInvested)}
                     </strong>
                   </span>
                   <span>
-                    Total Value:{' '}
+                    Value:{' '}
                     <strong className="text-zinc-900 dark:text-zinc-100">
                       {formatNepaliCurrency(totalCurrentValue)}
                     </strong>
                   </span>
                   <span>
-                    Net Gain/Loss:{' '}
+                    Gain/Loss:{' '}
                     <strong
                       className={
                         isOverallProfit
@@ -725,7 +725,7 @@ export default function PortfolioPage() {
                 </div>
                 <button
                   onClick={handleClearAll}
-                  className="text-xs text-zinc-500 hover:text-rose-600 transition underline"
+                  className="text-xs text-zinc-500 hover:text-rose-600 transition underline cursor-pointer"
                 >
                   Clear all holdings
                 </button>
@@ -735,16 +735,16 @@ export default function PortfolioPage() {
         </div>
 
         {/* Calculation Logic Info */}
-        <section className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-900/60">
+        <section className="p-4 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-900/60">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+            <h3 className="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
               Portfolio Calculation Formula Reference
             </h3>
             <span className="text-xs font-mono text-zinc-500">
               Pure math engine in lib/calculations/finance.ts
             </span>
           </div>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 text-xs text-zinc-600 dark:text-zinc-400">
             <div className="p-3 bg-white dark:bg-zinc-800/60 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
               <span className="font-semibold text-zinc-900 dark:text-zinc-200 block mb-0.5">Invested Amount</span>
               <code>Shares × Avg Purchase Price</code>

@@ -90,12 +90,12 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 Financial Dashboard
               </h1>
@@ -103,20 +103,20 @@ export default function HomePage() {
                 v0.6 Active
               </span>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
               Unified overview of your monthly cash flow, savings rate, and NEPSE portfolio performance.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Link
               href="/expenses"
-              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs"
+              className="flex-1 sm:flex-initial text-center px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs"
             >
               + Track Expenses
             </Link>
             <Link
               href="/portfolio"
-              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
+              className="flex-1 sm:flex-initial text-center px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
             >
               Manage Portfolio
             </Link>
@@ -124,22 +124,22 @@ export default function HomePage() {
         </div>
 
         {/* Quick Scenario Preset Selector Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 shrink-0">
               ⚡ Quick Scenarios:
             </span>
-            <span className="text-xs text-zinc-400 hidden sm:inline">
+            <span className="text-xs text-zinc-400 hidden md:inline">
               Switch presets to test various financial states:
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => loadScenario(80000, 34200, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-100 transition"
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-100 transition cursor-pointer"
             >
-              Standard Default
+              Standard
             </button>
             <button
               type="button"
@@ -155,39 +155,39 @@ export default function HomePage() {
                   },
                 ])
               }
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
+              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
             >
-              NABIL Only (v0.5 Test)
+              NABIL Only
             </button>
             <button
               type="button"
               onClick={() => loadScenario(120000, 45000, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
+              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
             >
-              High Surplus (Rs. 120k)
+              High Surplus
             </button>
             <button
               type="button"
               onClick={() => loadScenario(0, 0, [])}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
+              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
             >
-              Zero / Empty State
+              Zero State
             </button>
           </div>
         </div>
 
         {/* 8 Key Metric Cards Section */}
-        <section className="space-y-4">
+        <section className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
               Key Financial Metrics
             </h2>
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-              Currency: NPR (Rs.)
+              NPR (Rs.)
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Card 1: Monthly Income */}
             <MetricCard
               label="Monthly Income"
@@ -315,21 +315,21 @@ export default function HomePage() {
         </section>
 
         {/* Visual Charts Section (2 Charts) */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Chart 1: Income vs Expenses vs Savings */}
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+          <div className="p-4 sm:p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 sm:pb-4">
               <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                   Cash Flow Breakdown
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                   Income vs Expenses vs Net Monthly Savings
                 </p>
               </div>
               <Link
                 href="/expenses"
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
               >
                 Log Entry →
               </Link>
@@ -342,19 +342,19 @@ export default function HomePage() {
           </div>
 
           {/* Chart 2: Portfolio Stock Allocation */}
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+          <div className="p-4 sm:p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 sm:pb-4">
               <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                   Portfolio Allocation
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                   Percentage distribution by stock valuation
                 </p>
               </div>
               <Link
                 href="/portfolio"
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
               >
                 View Holdings →
               </Link>
@@ -367,10 +367,10 @@ export default function HomePage() {
         </section>
 
         {/* Overall Financial Summary Section */}
-        <section className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-6">
+        <section className="p-4 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <span>🛡️ Overall Financial Position &amp; Health</span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -382,13 +382,13 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {/* Position 1: Total Assets & Capacity */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Total Asset &amp; Savings Position
               </span>
-              <div className="font-mono text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">
+              <div className="font-mono text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 break-words">
                 {formatNepaliCurrency(totalCombinedAssets)}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -397,11 +397,11 @@ export default function HomePage() {
             </div>
 
             {/* Position 2: Monthly Surplus Velocity */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Investment Capacity
               </span>
-              <div className="font-mono text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              <div className="font-mono text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 break-words">
                 {formatNepaliCurrency(Math.max(0, monthlySavings))}/mo
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -418,11 +418,11 @@ export default function HomePage() {
             </div>
 
             {/* Position 3: Portfolio Return Status */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Portfolio Net Performance
               </span>
-              <div className={`font-mono text-2xl font-extrabold ${isPortfolioProfit ? 'text-emerald-600 dark:text-emerald-400' : isPortfolioLoss ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-700 dark:text-zinc-300'}`}>
+              <div className={`font-mono text-xl sm:text-2xl font-extrabold break-words ${isPortfolioProfit ? 'text-emerald-600 dark:text-emerald-400' : isPortfolioLoss ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-700 dark:text-zinc-300'}`}>
                 {isPortfolioProfit ? '+' : ''}{formatNepaliCurrency(totalProfitLoss)}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -440,7 +440,7 @@ export default function HomePage() {
           </div>
 
           {/* Quick Adjustment Inputs */}
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div className="text-xs text-zinc-500 dark:text-zinc-400">
               Want to adjust monthly cash figures? Update the fields below for real-time recalculation:
             </div>
@@ -453,7 +453,7 @@ export default function HomePage() {
                     type="number"
                     value={monthlyIncomeInput}
                     onChange={(e) => setMonthlyIncomeInput(e.target.value)}
-                    className="w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
+                    className="w-24 sm:w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
                     placeholder="0"
                   />
                 </div>
@@ -466,7 +466,7 @@ export default function HomePage() {
                     type="number"
                     value={monthlyExpensesInput}
                     onChange={(e) => setMonthlyExpensesInput(e.target.value)}
-                    className="w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
+                    className="w-24 sm:w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
                     placeholder="0"
                   />
                 </div>
@@ -476,17 +476,17 @@ export default function HomePage() {
         </section>
 
         {/* Feature Navigation Modules */}
-        <section className="space-y-4">
-          <h2 className="text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+        <section className="space-y-3 sm:space-y-4">
+          <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
             Dedicated Modules
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             <Link
               href="/expenses"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                   Income &amp; Expense Tracking →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -500,10 +500,10 @@ export default function HomePage() {
 
             <Link
               href="/portfolio"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-purple-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-purple-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
                   NEPSE Stock Portfolio →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 font-semibold">
@@ -517,10 +517,10 @@ export default function HomePage() {
 
             <Link
               href="/salary"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-blue-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-blue-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                   Salary &amp; Tax Management →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold">
