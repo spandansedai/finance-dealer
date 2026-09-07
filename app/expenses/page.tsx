@@ -297,36 +297,6 @@ export default function ExpensesPage() {
     return matchesType && matchesSearch;
   });
 
-  // Still checking whether a user is signed in.
-  if (!authChecked) {
-    return (
-      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-4 sm:p-6">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading...</p>
-      </main>
-    );
-  }
-
-  // No signed-in user: this page requires an account since transactions are per-user.
-  if (!userId) {
-    return (
-      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-4 sm:p-6">
-        <div className="max-w-sm w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs text-center space-y-4">
-          <div className="text-3xl">🔒</div>
-          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Sign In Required</h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Sign in to view and manage your income and expense records.
-          </p>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
-          >
-            Go to Sign In
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
@@ -583,8 +553,7 @@ export default function ExpensesPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={submitting}
-                className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-sm transition-all transform active:scale-98 disabled:opacity-60 cursor-pointer ${
+                className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-sm transition-all transform active:scale-98 ${
                   type === 'income'
                     ? 'bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400'
                     : 'bg-rose-600 hover:bg-rose-500 focus:ring-2 focus:ring-rose-400'
