@@ -1,9 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Transaction, TransactionType } from '@/types';
 import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from '@/lib/calculations/finance';
+import { supabase } from '@/lib/supabase';
+
+// Shape of a row as stored in the `transactions` table.
+interface TransactionRow {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+}
+
+const rowToTransaction = (row: TransactionRow): Transaction => ({
+  id: row.id,
+  type: row.type,
+  amount: Number(row.amount),
+  category: row.category,
+  description: row.description,
+  date: row.date,
+});
 
 const INCOME_CATEGORIES = [
   'Salary',
@@ -78,9 +98,15 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
 ];
 
 export default function ExpensesPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Auth + data loading state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form State
   const [type, setType] = useState<TransactionType>('expense');
@@ -89,6 +115,59 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadTransactions = async () => {
+    setLoadingTransactions(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, type, amount, category, description, date')
+      .order('date', { ascending: false });
+
+    if (error) {
+      setLoadError('Could not load your transactions. Please try refreshing the page.');
+      setLoadingTransactions(false);
+      return;
+    }
+
+    setTransactions((data ?? []).map(rowToTransaction));
+    setLoadingTransactions(false);
+  };
+
+  // Check auth session, then load this user's transactions from Supabase.
+  useEffect(() => {
+    let isMounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      setUserId(data.user?.id ?? null);
+      setAuthChecked(true);
+
+      if (data.user) {
+        await loadTransactions();
+      }
+    };
+
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUserId(session?.user?.id ?? null);
+      if (session?.user) {
+        await loadTransactions();
+      } else {
+        setTransactions([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Switch category list when type changes
   const handleTypeChange = (newType: TransactionType) => {
@@ -100,9 +179,14 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleAddTransaction = (e: React.FormEvent) => {
+  const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!userId) {
+      setFormError('You need to be signed in to add transactions.');
+      return;
+    }
 
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -115,16 +199,29 @@ export default function ExpensesPage() {
       return;
     }
 
-    const newTransaction: Transaction = {
-      id: `tx-${Date.now()}`,
-      type,
-      amount: parsedAmount,
-      category,
-      description: description.trim(),
-      date: date || new Date().toISOString().split('T')[0],
-    };
+    setSubmitting(true);
 
-    setTransactions((prev) => [newTransaction, ...prev]);
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        type,
+        amount: parsedAmount,
+        category,
+        description: description.trim(),
+        date: date || new Date().toISOString().split('T')[0],
+      })
+      .select('id, type, amount, category, description, date')
+      .single();
+
+    setSubmitting(false);
+
+    if (error || !data) {
+      setFormError('Could not save the transaction. Please try again.');
+      return;
+    }
+
+    setTransactions((prev) => [rowToTransaction(data), ...prev]);
 
     // Reset Form
     setAmount('');
@@ -132,8 +229,50 @@ export default function ExpensesPage() {
     setFormError(null);
   };
 
-  const handleDeleteTransaction = (id: string) => {
+  const handleDeleteTransaction = async (id: string) => {
+    const { error } = await supabase.from('transactions').delete().eq('id', id);
+
+    if (error) {
+      setLoadError('Could not delete that transaction. Please try again.');
+      return;
+    }
+
     setTransactions((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleClearAll = async () => {
+    if (!userId) return;
+
+    const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
+
+    if (error) {
+      setLoadError('Could not clear your records. Please try again.');
+      return;
+    }
+
+    setTransactions([]);
+  };
+
+  const handleLoadSampleData = async () => {
+    if (!userId) return;
+
+    const sampleRows = INITIAL_TRANSACTIONS.map(({ type: t, amount: a, category: c, description: d, date: dt }) => ({
+      user_id: userId,
+      type: t,
+      amount: a,
+      category: c,
+      description: d,
+      date: dt,
+    }));
+
+    const { error } = await supabase.from('transactions').insert(sampleRows);
+
+    if (error) {
+      setLoadError('Could not load sample data. Please try again.');
+      return;
+    }
+
+    await loadTransactions();
   };
 
   // Calculations
@@ -158,9 +297,47 @@ export default function ExpensesPage() {
     return matchesType && matchesSearch;
   });
 
+  // Still checking whether a user is signed in.
+  if (!authChecked) {
+    return (
+      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-6">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading...</p>
+      </main>
+    );
+  }
+
+  // No signed-in user: this page requires an account since transactions are per-user.
+  if (!userId) {
+    return (
+      <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex items-center justify-center p-6">
+        <div className="max-w-sm w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs text-center space-y-3">
+          <div className="text-3xl">🔒</div>
+          <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Sign In Required</h1>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Sign in to view and manage your income and expense records.
+          </p>
+          <Link
+            href="/login"
+            className="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+          >
+            Go to Sign In
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-8">
+        {loadError && (
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
+            {loadError}
+          </div>
+        )}
+        {loadingTransactions && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading transactions...</div>
+        )}
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
           <div>
@@ -406,13 +583,14 @@ export default function ExpensesPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-sm transition-all transform active:scale-98 ${
+                disabled={submitting}
+                className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-sm transition-all transform active:scale-98 disabled:opacity-60 ${
                   type === 'income'
                     ? 'bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400'
                     : 'bg-rose-600 hover:bg-rose-500 focus:ring-2 focus:ring-rose-400'
                 }`}
               >
-                + Add {type === 'income' ? 'Income' : 'Expense'} Entry
+                {submitting ? 'Saving...' : `+ Add ${type === 'income' ? 'Income' : 'Expense'} Entry`}
               </button>
             </form>
           </div>
@@ -490,9 +668,9 @@ export default function ExpensesPage() {
                     ? 'Use the form on the left to add your first income or expense entry.'
                     : 'No records match your search filter.'}
                 </p>
-                {transactions.length === 0 && (
+                {transactions.length === 0 && userId && (
                   <button
-                    onClick={() => setTransactions(INITIAL_TRANSACTIONS)}
+                    onClick={handleLoadSampleData}
                     className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
                   >
                     Load Sample Data
@@ -608,7 +786,7 @@ export default function ExpensesPage() {
                   </strong>
                 </span>
                 <button
-                  onClick={() => setTransactions([])}
+                  onClick={handleClearAll}
                   className="text-xs text-zinc-500 hover:text-rose-600 transition underline"
                 >
                   Clear all records

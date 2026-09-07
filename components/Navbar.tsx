@@ -1,10 +1,30 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export const Navbar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const navLinks = [
     { href: '/', label: 'Dashboard' },
@@ -79,8 +99,25 @@ export const Navbar = () => {
         </div>
 
         <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Unified Financial Engine Active</span>
+          {userEmail ? (
+            <>
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="max-w-[160px] truncate">{userEmail}</span>
+              <button
+                onClick={handleSignOut}
+                className="px-2.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="px-2.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </header>
