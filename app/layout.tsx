@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
+import { GuestModeProvider } from '@/context/GuestModeContext';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -36,8 +37,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <body className="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden">
-        <Navbar />
-        <div className="flex-1 w-full max-w-full overflow-x-hidden">{children}</div>
+        <GuestModeProvider>
+          <Navbar />
+          <div className="flex-1 w-full max-w-full overflow-x-hidden">{children}</div>
+        </GuestModeProvider>
       </body>
     </html>
   );

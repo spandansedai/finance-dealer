@@ -13,6 +13,7 @@ import {
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
+import { useGuestMode } from '@/context/GuestModeContext';
 
 const rowToHolding = (row: any): StockHolding => ({
   id: row.id,
@@ -27,10 +28,11 @@ const rowToHolding = (row: any): StockHolding => ({
 });
 
 export default function HomePage() {
+  const { guestTransactions, guestHoldings } = useGuestMode();
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [holdings, setHoldings] = useState<StockHolding[]>([]);
+  const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
+  const [dbHoldings, setDbHoldings] = useState<StockHolding[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -56,7 +58,7 @@ export default function HomePage() {
 
         if (isMounted) {
           if (txRes.data) {
-            setTransactions(
+            setDbTransactions(
               txRes.data.map((row: any) => ({
                 id: row.id,
                 type: row.type,
@@ -68,12 +70,12 @@ export default function HomePage() {
             );
           }
           if (holdingsRes.data) {
-            setHoldings(holdingsRes.data.map(rowToHolding));
+            setDbHoldings(holdingsRes.data.map(rowToHolding));
           }
         }
       } else {
-        setTransactions([]);
-        setHoldings([]);
+        setDbTransactions([]);
+        setDbHoldings([]);
       }
 
       if (isMounted) {
@@ -98,7 +100,7 @@ export default function HomePage() {
         ]);
 
         if (txRes.data) {
-          setTransactions(
+          setDbTransactions(
             txRes.data.map((row: any) => ({
               id: row.id,
               type: row.type,
@@ -110,11 +112,11 @@ export default function HomePage() {
           );
         }
         if (holdingsRes.data) {
-          setHoldings(holdingsRes.data.map(rowToHolding));
+          setDbHoldings(holdingsRes.data.map(rowToHolding));
         }
       } else {
-        setTransactions([]);
-        setHoldings([]);
+        setDbTransactions([]);
+        setDbHoldings([]);
       }
     });
 
@@ -124,8 +126,12 @@ export default function HomePage() {
     };
   }, []);
 
-  const totalIncome = calculateTotalByType(transactions, 'income');
-  const totalExpenses = calculateTotalByType(transactions, 'expense');
+  // When authenticated, use Supabase data. When in guest mode, use in-memory guest state.
+  const activeTransactions = userId ? dbTransactions : guestTransactions;
+  const activeHoldings = userId ? dbHoldings : guestHoldings;
+
+  const totalIncome = calculateTotalByType(activeTransactions, 'income');
+  const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
 
   // Pure Math Calculations - Savings Engine
   const {
@@ -143,7 +149,7 @@ export default function HomePage() {
     totalProfitLoss,
     totalProfitLossPercentage,
     holdings: analyzedHoldings,
-  } = calculatePortfolioAnalytics(holdings);
+  } = calculatePortfolioAnalytics(activeHoldings);
 
   const isSavingsDeficit = monthlySavings < 0;
   const isPortfolioProfit = totalProfitLoss > 0;
@@ -151,7 +157,7 @@ export default function HomePage() {
 
   // Combined Financial Position
   const totalCombinedAssets = totalCurrentValue + Math.max(0, annualSavings);
-  const hasAnyData = transactions.length > 0 || holdings.length > 0;
+  const hasAnyData = activeTransactions.length > 0 || activeHoldings.length > 0;
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
@@ -193,16 +199,22 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Guest Mode Indicator Banner */}
         {!userId && !loading && (
-          <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="text-zinc-600 dark:text-zinc-400">
-              <strong>Sign in</strong> to sync and securely store your personal financial data across devices.
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
+                Try It Out Mode
+              </span>
+              <span>
+                You are exploring Finance-Dealer in <strong>Guest Mode</strong>. Data entered is stored in memory and will reset automatically on page refresh.
+              </span>
             </div>
             <Link
               href="/login"
-              className="px-3 py-1.5 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition self-start sm:self-auto"
+              className="px-3.5 py-1.5 font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition self-start sm:self-auto shrink-0 shadow-xs"
             >
-              Sign In / Sign Up
+              Sign Up / Sign In to Save
             </Link>
           </div>
         )}
@@ -297,7 +309,7 @@ export default function HomePage() {
               amount={totalCurrentValue}
               currency="Rs."
               type="neutral"
-              badgeText={`${holdings.length} Stocks`}
+              badgeText={`${activeHoldings.length} Stocks`}
               subtitle="Current valuation at market price"
             />
 
@@ -465,7 +477,7 @@ export default function HomePage() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 {totalInvested > 0 ? (
                   <>
-                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {holdings.length} {holdings.length === 1 ? 'holding' : 'holdings'} against a cost basis of {formatNepaliCurrency(totalInvested)}.
+                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {activeHoldings.length} {activeHoldings.length === 1 ? 'holding' : 'holdings'} against a cost basis of {formatNepaliCurrency(totalInvested)}.
                   </>
                 ) : (
                   <>

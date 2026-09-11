@@ -9,6 +9,7 @@ import {
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
+import { useGuestMode } from '@/context/GuestModeContext';
 
 const rowToHolding = (row: any): StockHolding => ({
   id: row.id,
@@ -23,7 +24,15 @@ const rowToHolding = (row: any): StockHolding => ({
 });
 
 export default function PortfolioPage() {
-  const [holdings, setHoldings] = useState<StockHolding[]>([]);
+  const {
+    guestHoldings,
+    addGuestHolding,
+    updateGuestHoldingPrice,
+    deleteGuestHolding,
+    clearGuestHoldings,
+  } = useGuestMode();
+
+  const [dbHoldings, setDbHoldings] = useState<StockHolding[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Auth + data loading state
@@ -59,7 +68,7 @@ export default function PortfolioPage() {
       return;
     }
 
-    setHoldings((data ?? []).map(rowToHolding));
+    setDbHoldings((data ?? []).map(rowToHolding));
     setLoadingHoldings(false);
   };
 
@@ -71,10 +80,11 @@ export default function PortfolioPage() {
       const { data } = await supabase.auth.getUser();
       if (!isMounted) return;
 
-      setUserId(data.user?.id ?? null);
+      const currentUserId = data.user?.id ?? null;
+      setUserId(currentUserId);
       setAuthChecked(true);
 
-      if (data.user) {
+      if (currentUserId) {
         await loadHoldings();
       }
     };
@@ -82,11 +92,12 @@ export default function PortfolioPage() {
     init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUserId(session?.user?.id ?? null);
-      if (session?.user) {
+      const currentUserId = session?.user?.id ?? null;
+      setUserId(currentUserId);
+      if (currentUserId) {
         await loadHoldings();
       } else {
-        setHoldings([]);
+        setDbHoldings([]);
       }
     });
 
@@ -96,8 +107,11 @@ export default function PortfolioPage() {
     };
   }, []);
 
+  // Active holdings set (Supabase if authenticated, in-memory if guest)
+  const activeHoldings = userId ? dbHoldings : guestHoldings;
+
   // Run pure calculations
-  const portfolioSummary = calculatePortfolioAnalytics(holdings);
+  const portfolioSummary = calculatePortfolioAnalytics(activeHoldings);
   const {
     totalInvested,
     totalCurrentValue,
@@ -113,11 +127,6 @@ export default function PortfolioPage() {
   const handleAddHolding = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-
-    if (!userId) {
-      setFormError('You need to be signed in to add stock holdings.');
-      return;
-    }
 
     const cleanSymbol = symbol.trim().toUpperCase();
     if (!cleanSymbol) {
@@ -143,29 +152,42 @@ export default function PortfolioPage() {
       return;
     }
 
-    setSubmitting(true);
+    const finalCompanyName = companyName.trim() || `${cleanSymbol} Security`;
 
-    const { data, error } = await supabase
-      .from('holdings')
-      .insert({
-        user_id: userId,
+    if (userId) {
+      setSubmitting(true);
+
+      const { data, error } = await supabase
+        .from('holdings')
+        .insert({
+          user_id: userId,
+          symbol: cleanSymbol,
+          company_name: finalCompanyName,
+          shares: parsedShares,
+          average_purchase_price: parsedAvgPrice,
+          current_price: parsedCurrentPrice,
+        })
+        .select()
+        .single();
+
+      setSubmitting(false);
+
+      if (error || !data) {
+        setFormError('Could not save the holding. Please try again.');
+        return;
+      }
+
+      setDbHoldings((prev) => [rowToHolding(data), ...prev]);
+    } else {
+      // Guest mode
+      addGuestHolding({
         symbol: cleanSymbol,
-        company_name: companyName.trim() || `${cleanSymbol} Security`,
+        companyName: finalCompanyName,
         shares: parsedShares,
-        average_purchase_price: parsedAvgPrice,
-        current_price: parsedCurrentPrice,
-      })
-      .select()
-      .single();
-
-    setSubmitting(false);
-
-    if (error || !data) {
-      setFormError('Could not save the holding. Please try again.');
-      return;
+        averagePurchasePrice: parsedAvgPrice,
+        currentPrice: parsedCurrentPrice,
+      });
     }
-
-    setHoldings((prev) => [rowToHolding(data), ...prev]);
 
     // Reset Form
     setSymbol('');
@@ -180,14 +202,18 @@ export default function PortfolioPage() {
   const handleDeleteHolding = async (id?: string) => {
     if (!id) return;
 
-    const { error } = await supabase.from('holdings').delete().eq('id', id);
+    if (userId) {
+      const { error } = await supabase.from('holdings').delete().eq('id', id);
 
-    if (error) {
-      setLoadError('Could not delete that holding. Please try again.');
-      return;
+      if (error) {
+        setLoadError('Could not delete that holding. Please try again.');
+        return;
+      }
+
+      setDbHoldings((prev) => prev.filter((h) => h.id !== id));
+    } else {
+      deleteGuestHolding(id);
     }
-
-    setHoldings((prev) => prev.filter((h) => h.id !== id));
   };
 
   // Start inline price edit
@@ -200,19 +226,23 @@ export default function PortfolioPage() {
   const handleSavePriceEdit = async (id: string) => {
     const parsed = parseFloat(tempPriceInput);
     if (!isNaN(parsed) && parsed >= 0) {
-      const { error } = await supabase
-        .from('holdings')
-        .update({ current_price: parsed })
-        .eq('id', id);
+      if (userId) {
+        const { error } = await supabase
+          .from('holdings')
+          .update({ current_price: parsed })
+          .eq('id', id);
 
-      if (error) {
-        setLoadError('Could not update stock price. Please try again.');
-        return;
+        if (error) {
+          setLoadError('Could not update stock price. Please try again.');
+          return;
+        }
+
+        setDbHoldings((prev) =>
+          prev.map((h) => (h.id === id ? { ...h, currentPrice: parsed } : h))
+        );
+      } else {
+        updateGuestHoldingPrice(id, parsed);
       }
-
-      setHoldings((prev) =>
-        prev.map((h) => (h.id === id ? { ...h, currentPrice: parsed } : h))
-      );
     }
     setEditingPriceId(null);
     setTempPriceInput('');
@@ -225,16 +255,18 @@ export default function PortfolioPage() {
   };
 
   const handleClearAll = async () => {
-    if (!userId) return;
+    if (userId) {
+      const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
 
-    const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
+      if (error) {
+        setLoadError('Could not clear your holdings. Please try again.');
+        return;
+      }
 
-    if (error) {
-      setLoadError('Could not clear your holdings. Please try again.');
-      return;
+      setDbHoldings([]);
+    } else {
+      clearGuestHoldings();
     }
-
-    setHoldings([]);
   };
 
   // Filtered Holdings
@@ -257,6 +289,26 @@ export default function PortfolioPage() {
         )}
         {loadingHoldings && (
           <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading holdings...</div>
+        )}
+
+        {/* Guest Mode Notice Banner */}
+        {!userId && authChecked && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
+                Try It Out Mode
+              </span>
+              <span>
+                Managing portfolio in <strong>Guest Mode</strong>. Stock holdings are stored in memory and will reset when you refresh.
+              </span>
+            </div>
+            <Link
+              href="/login"
+              className="px-3 py-1 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs"
+            >
+              Sign Up / Sign In to Save
+            </Link>
+          </div>
         )}
 
         {/* Header Section */}
@@ -293,7 +345,7 @@ export default function PortfolioPage() {
                 Portfolio Totals &amp; Performance
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Calculations computed from your {holdings.length} stock {holdings.length === 1 ? 'holding' : 'holdings'}.
+                Calculations computed from your {activeHoldings.length} stock {activeHoldings.length === 1 ? 'holding' : 'holdings'}.
               </p>
             </div>
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
@@ -318,7 +370,7 @@ export default function PortfolioPage() {
               amount={totalCurrentValue}
               currency="Rs."
               type="neutral"
-              badgeText={`${holdings.length} Stocks`}
+              badgeText={`${activeHoldings.length} Stocks`}
               subtitle="Sum of shares × current price"
             />
 
@@ -372,7 +424,7 @@ export default function PortfolioPage() {
           <div className="lg:col-span-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Add Stock Holding
+                Add Stock Holding {!userId && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Guest Mode)</span>}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                 Record your shares, purchase price, and current market price.
@@ -502,7 +554,7 @@ export default function PortfolioPage() {
                     Stock Holdings &amp; Analytics
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Showing {filteredHoldings.length} of {holdings.length} holdings
+                    Showing {filteredHoldings.length} of {activeHoldings.length} holdings
                   </p>
                 </div>
 
@@ -526,7 +578,7 @@ export default function PortfolioPage() {
                   No stock holdings found
                 </p>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                  {holdings.length === 0
+                  {activeHoldings.length === 0
                     ? 'Use the form on the left to start tracking your NEPSE portfolio.'
                     : 'No holdings match your search query.'}
                 </p>
@@ -723,7 +775,7 @@ export default function PortfolioPage() {
                   <span>
                     Holdings:{' '}
                     <strong className="text-zinc-900 dark:text-zinc-100">
-                      {holdings.length}
+                      {activeHoldings.length}
                     </strong>
                   </span>
                   <span>

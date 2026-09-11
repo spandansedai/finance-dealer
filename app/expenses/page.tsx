@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Transaction, TransactionType } from '@/types';
 import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
+import { useGuestMode } from '@/context/GuestModeContext';
 
 // Shape of a row as stored in the `transactions` table.
 interface TransactionRow {
@@ -47,7 +48,14 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export default function ExpensesPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const {
+    guestTransactions,
+    addGuestTransaction,
+    deleteGuestTransaction,
+    clearGuestTransactions,
+  } = useGuestMode();
+
+  const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -81,7 +89,7 @@ export default function ExpensesPage() {
       return;
     }
 
-    setTransactions((data ?? []).map(rowToTransaction));
+    setDbTransactions((data ?? []).map(rowToTransaction));
     setLoadingTransactions(false);
   };
 
@@ -93,10 +101,11 @@ export default function ExpensesPage() {
       const { data } = await supabase.auth.getUser();
       if (!isMounted) return;
 
-      setUserId(data.user?.id ?? null);
+      const currentUserId = data.user?.id ?? null;
+      setUserId(currentUserId);
       setAuthChecked(true);
 
-      if (data.user) {
+      if (currentUserId) {
         await loadTransactions();
       }
     };
@@ -104,11 +113,12 @@ export default function ExpensesPage() {
     init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUserId(session?.user?.id ?? null);
-      if (session?.user) {
+      const currentUserId = session?.user?.id ?? null;
+      setUserId(currentUserId);
+      if (currentUserId) {
         await loadTransactions();
       } else {
-        setTransactions([]);
+        setDbTransactions([]);
       }
     });
 
@@ -132,11 +142,6 @@ export default function ExpensesPage() {
     e.preventDefault();
     setFormError(null);
 
-    if (!userId) {
-      setFormError('You need to be signed in to add transactions.');
-      return;
-    }
-
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
       setFormError('Please enter a valid amount greater than 0.');
@@ -148,29 +153,42 @@ export default function ExpensesPage() {
       return;
     }
 
-    setSubmitting(true);
+    const txDate = date || new Date().toISOString().split('T')[0];
 
-    const { data, error } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: userId,
+    // Branch: Authenticated vs Guest
+    if (userId) {
+      setSubmitting(true);
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          type,
+          amount: parsedAmount,
+          category,
+          description: description.trim(),
+          date: txDate,
+        })
+        .select('id, type, amount, category, description, date')
+        .single();
+
+      setSubmitting(false);
+
+      if (error || !data) {
+        setFormError('Could not save the transaction. Please try again.');
+        return;
+      }
+
+      setDbTransactions((prev) => [rowToTransaction(data), ...prev]);
+    } else {
+      // Guest mode: save to in-memory React context
+      addGuestTransaction({
         type,
         amount: parsedAmount,
         category,
         description: description.trim(),
-        date: date || new Date().toISOString().split('T')[0],
-      })
-      .select('id, type, amount, category, description, date')
-      .single();
-
-    setSubmitting(false);
-
-    if (error || !data) {
-      setFormError('Could not save the transaction. Please try again.');
-      return;
+        date: txDate,
+      });
     }
-
-    setTransactions((prev) => [rowToTransaction(data), ...prev]);
 
     // Reset Form
     setAmount('');
@@ -179,32 +197,43 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    const { error } = await supabase.from('transactions').delete().eq('id', id);
+    if (userId) {
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
 
-    if (error) {
-      setLoadError('Could not delete that transaction. Please try again.');
-      return;
+      if (error) {
+        setLoadError('Could not delete that transaction. Please try again.');
+        return;
+      }
+
+      setDbTransactions((prev) => prev.filter((item) => item.id !== id));
+    } else {
+      // Guest mode delete
+      deleteGuestTransaction(id);
     }
-
-    setTransactions((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleClearAll = async () => {
-    if (!userId) return;
+    if (userId) {
+      const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
 
-    const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
+      if (error) {
+        setLoadError('Could not clear your records. Please try again.');
+        return;
+      }
 
-    if (error) {
-      setLoadError('Could not clear your records. Please try again.');
-      return;
+      setDbTransactions([]);
+    } else {
+      // Guest mode clear
+      clearGuestTransactions();
     }
-
-    setTransactions([]);
   };
 
+  // Active transaction set (DB if logged in, in-memory if guest)
+  const activeTransactions = userId ? dbTransactions : guestTransactions;
+
   // Calculations
-  const totalIncome = calculateTotalByType(transactions, 'income');
-  const totalExpenses = calculateTotalByType(transactions, 'expense');
+  const totalIncome = calculateTotalByType(activeTransactions, 'income');
+  const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
   const netSurplus = calculateNetSavings(totalIncome, totalExpenses);
   const savingsRate = calculateSavingsRate(totalIncome, totalExpenses);
 
@@ -216,7 +245,7 @@ export default function ExpensesPage() {
   };
 
   // Filtered List
-  const filteredTransactions = transactions.filter((item) => {
+  const filteredTransactions = activeTransactions.filter((item) => {
     const matchesType = filterType === 'all' || item.type === filterType;
     const matchesSearch =
       item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -235,6 +264,27 @@ export default function ExpensesPage() {
         {loadingTransactions && (
           <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading transactions...</div>
         )}
+
+        {/* Guest Mode Notice Banner */}
+        {!userId && authChecked && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
+                Try It Out Mode
+              </span>
+              <span>
+                Adding entries in <strong>Guest Mode</strong>. Transactions are kept in memory and will reset when you refresh.
+              </span>
+            </div>
+            <Link
+              href="/login"
+              className="px-3 py-1 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs"
+            >
+              Sign Up / Sign In to Save
+            </Link>
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div>
@@ -266,7 +316,7 @@ export default function ExpensesPage() {
               Monthly Cash Flow Breakdown
             </h2>
             <span className="text-xs text-zinc-500">
-              {transactions.length} total logged entries
+              {activeTransactions.length} total logged entries
             </span>
           </div>
 
@@ -276,7 +326,7 @@ export default function ExpensesPage() {
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Income</span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
-                  {transactions.filter((t) => t.type === 'income').length} Sources
+                  {activeTransactions.filter((t) => t.type === 'income').length} Sources
                 </span>
               </div>
               <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
@@ -295,7 +345,7 @@ export default function ExpensesPage() {
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Expenses</span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300">
-                  {transactions.filter((t) => t.type === 'expense').length} Logged
+                  {activeTransactions.filter((t) => t.type === 'expense').length} Logged
                 </span>
               </div>
               <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
@@ -358,7 +408,7 @@ export default function ExpensesPage() {
           <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
             <div>
               <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Add Transaction
+                Add Transaction {!userId && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Guest Mode)</span>}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                 Record a new income stream or daily expense entry.
@@ -501,7 +551,7 @@ export default function ExpensesPage() {
                     Logged Transactions
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Showing {filteredTransactions.length} of {transactions.length} records
+                    Showing {filteredTransactions.length} of {activeTransactions.length} records
                   </p>
                 </div>
 
@@ -515,7 +565,7 @@ export default function ExpensesPage() {
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    All ({transactions.length})
+                    All ({activeTransactions.length})
                   </button>
                   <button
                     onClick={() => setFilterType('income')}
@@ -525,7 +575,7 @@ export default function ExpensesPage() {
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    Income ({transactions.filter((t) => t.type === 'income').length})
+                    Income ({activeTransactions.filter((t) => t.type === 'income').length})
                   </button>
                   <button
                     onClick={() => setFilterType('expense')}
@@ -535,7 +585,7 @@ export default function ExpensesPage() {
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    Expenses ({transactions.filter((t) => t.type === 'expense').length})
+                    Expenses ({activeTransactions.filter((t) => t.type === 'expense').length})
                   </button>
                 </div>
               </div>
@@ -560,7 +610,7 @@ export default function ExpensesPage() {
                   No transactions found
                 </p>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                  {transactions.length === 0
+                  {activeTransactions.length === 0
                     ? 'Use the form on the left to add your first income or expense entry.'
                     : 'No records match your search filter.'}
                 </p>
