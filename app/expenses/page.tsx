@@ -46,57 +46,6 @@ const EXPENSE_CATEGORIES = [
   'Other Expense',
 ];
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-1',
-    type: 'income',
-    amount: 65000,
-    category: 'Salary',
-    description: 'Primary Software Engineering Salary',
-    date: '2026-08-01',
-  },
-  {
-    id: 'tx-2',
-    type: 'income',
-    amount: 15000,
-    category: 'Side Hustle',
-    description: 'Consulting & Website Maintenance',
-    date: '2026-08-10',
-  },
-  {
-    id: 'tx-3',
-    type: 'expense',
-    amount: 18000,
-    category: 'Rent',
-    description: 'Apartment monthly rent (Kathmandu)',
-    date: '2026-08-02',
-  },
-  {
-    id: 'tx-4',
-    type: 'expense',
-    amount: 8500,
-    category: 'Food & Groceries',
-    description: 'Bhatbhateni supermarket monthly groceries',
-    date: '2026-08-05',
-  },
-  {
-    id: 'tx-5',
-    type: 'expense',
-    amount: 3200,
-    category: 'Utilities',
-    description: 'Electricity (NEA), Water, & WorldLink fiber internet',
-    date: '2026-08-07',
-  },
-  {
-    id: 'tx-6',
-    type: 'expense',
-    amount: 4500,
-    category: 'Entertainment',
-    description: 'Weekend dining & movies',
-    date: '2026-08-12',
-  },
-];
-
 export default function ExpensesPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -253,28 +202,6 @@ export default function ExpensesPage() {
     setTransactions([]);
   };
 
-  const handleLoadSampleData = async () => {
-    if (!userId) return;
-
-    const sampleRows = INITIAL_TRANSACTIONS.map(({ type: t, amount: a, category: c, description: d, date: dt }) => ({
-      user_id: userId,
-      type: t,
-      amount: a,
-      category: c,
-      description: d,
-      date: dt,
-    }));
-
-    const { error } = await supabase.from('transactions').insert(sampleRows);
-
-    if (error) {
-      setLoadError('Could not load sample data. Please try again.');
-      return;
-    }
-
-    await loadTransactions();
-  };
-
   // Calculations
   const totalIncome = calculateTotalByType(transactions, 'income');
   const totalExpenses = calculateTotalByType(transactions, 'expense');
@@ -314,7 +241,7 @@ export default function ExpensesPage() {
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Income & Expense Tracking</h1>
               <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.2 Active
+                v0.6 Active
               </span>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -637,14 +564,6 @@ export default function ExpensesPage() {
                     ? 'Use the form on the left to add your first income or expense entry.'
                     : 'No records match your search filter.'}
                 </p>
-                {transactions.length === 0 && userId && (
-                  <button
-                    onClick={handleLoadSampleData}
-                    className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition cursor-pointer"
-                  >
-                    Load Sample Data
-                  </button>
-                )}
               </div>
             ) : (
               <div className="overflow-x-auto w-full">

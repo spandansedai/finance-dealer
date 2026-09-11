@@ -1,57 +1,131 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { PortfolioAllocationChart } from '@/components/PortfolioAllocationChart';
 import { CashFlowChart } from '@/components/CashFlowChart';
-import { StockHolding } from '@/types';
+import { StockHolding, Transaction } from '@/types';
 import {
   calculateSavingsSummary,
   calculatePortfolioAnalytics,
+  calculateTotalByType,
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
+import { supabase } from '@/lib/supabase';
 
-const DEFAULT_HOLDINGS: StockHolding[] = [
-  {
-    id: 'holding-nabil',
-    symbol: 'NABIL',
-    companyName: 'Nabil Bank Limited',
-    shares: 100,
-    averagePurchasePrice: 500,
-    currentPrice: 600,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-gbime',
-    symbol: 'GBIME',
-    companyName: 'Global IME Bank Limited',
-    shares: 200,
-    averagePurchasePrice: 220,
-    currentPrice: 245,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-hdl',
-    symbol: 'HDL',
-    companyName: 'Himalayan Distillery Limited',
-    shares: 50,
-    averagePurchasePrice: 1800,
-    currentPrice: 1650,
-    sector: 'Manufacturing',
-  },
-];
+const rowToHolding = (row: any): StockHolding => ({
+  id: row.id,
+  symbol: (row.symbol || '').toUpperCase(),
+  companyName: row.company_name ?? row.companyName ?? row.symbol,
+  shares: Number(row.shares ?? row.units ?? 0),
+  averagePurchasePrice: Number(
+    row.average_purchase_price ?? row.averagePurchasePrice ?? row.buy_price ?? row.buyPrice ?? 0
+  ),
+  currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
+  sector: row.sector ?? undefined,
+});
 
 export default function HomePage() {
-  // Cash Flow State
-  const [monthlyIncomeInput, setMonthlyIncomeInput] = useState<string>('80000');
-  const [monthlyExpensesInput, setMonthlyExpensesInput] = useState<string>('34200');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [holdings, setHoldings] = useState<StockHolding[]>([]);
 
-  // Stock Portfolio State
-  const [holdings, setHoldings] = useState<StockHolding[]>(DEFAULT_HOLDINGS);
+  useEffect(() => {
+    let isMounted = true;
 
-  const income = parseFloat(monthlyIncomeInput) || 0;
-  const expenses = parseFloat(monthlyExpensesInput) || 0;
+    const loadUserData = async () => {
+      setLoading(true);
+      const { data } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      const currentUserId = data.user?.id ?? null;
+      setUserId(currentUserId);
+
+      if (currentUserId) {
+        const [txRes, holdingsRes] = await Promise.all([
+          supabase
+            .from('transactions')
+            .select('id, type, amount, category, description, date'),
+          supabase
+            .from('holdings')
+            .select('*'),
+        ]);
+
+        if (isMounted) {
+          if (txRes.data) {
+            setTransactions(
+              txRes.data.map((row: any) => ({
+                id: row.id,
+                type: row.type,
+                amount: Number(row.amount),
+                category: row.category,
+                description: row.description,
+                date: row.date,
+              }))
+            );
+          }
+          if (holdingsRes.data) {
+            setHoldings(holdingsRes.data.map(rowToHolding));
+          }
+        }
+      } else {
+        setTransactions([]);
+        setHoldings([]);
+      }
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    loadUserData();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUserId = session?.user?.id ?? null;
+      setUserId(currentUserId);
+
+      if (currentUserId) {
+        const [txRes, holdingsRes] = await Promise.all([
+          supabase
+            .from('transactions')
+            .select('id, type, amount, category, description, date'),
+          supabase
+            .from('holdings')
+            .select('*'),
+        ]);
+
+        if (txRes.data) {
+          setTransactions(
+            txRes.data.map((row: any) => ({
+              id: row.id,
+              type: row.type,
+              amount: Number(row.amount),
+              category: row.category,
+              description: row.description,
+              date: row.date,
+            }))
+          );
+        }
+        if (holdingsRes.data) {
+          setHoldings(holdingsRes.data.map(rowToHolding));
+        }
+      } else {
+        setTransactions([]);
+        setHoldings([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const totalIncome = calculateTotalByType(transactions, 'income');
+  const totalExpenses = calculateTotalByType(transactions, 'expense');
 
   // Pure Math Calculations - Savings Engine
   const {
@@ -60,7 +134,7 @@ export default function HomePage() {
     monthlySavings,
     savingsRate,
     annualSavings,
-  } = calculateSavingsSummary(income, expenses);
+  } = calculateSavingsSummary(totalIncome, totalExpenses);
 
   // Pure Math Calculations - Portfolio Engine
   const {
@@ -77,17 +151,7 @@ export default function HomePage() {
 
   // Combined Financial Position
   const totalCombinedAssets = totalCurrentValue + Math.max(0, annualSavings);
-
-  // Quick Preset Scenarios
-  const loadScenario = (
-    inc: number,
-    exp: number,
-    presetHoldings: StockHolding[]
-  ) => {
-    setMonthlyIncomeInput(inc.toString());
-    setMonthlyExpensesInput(exp.toString());
-    setHoldings(presetHoldings);
-  };
+  const hasAnyData = transactions.length > 0 || holdings.length > 0;
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
@@ -123,58 +187,25 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Quick Scenario Preset Selector Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 shrink-0">
-              ⚡ Quick Scenarios:
-            </span>
-            <span className="text-xs text-zinc-400 hidden md:inline">
-              Switch presets to test various financial states:
-            </span>
+        {loading && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            Loading your financial data...
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => loadScenario(80000, 34200, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-100 transition cursor-pointer"
+        )}
+
+        {!userId && !loading && (
+          <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="text-zinc-600 dark:text-zinc-400">
+              <strong>Sign in</strong> to sync and securely store your personal financial data across devices.
+            </div>
+            <Link
+              href="/login"
+              className="px-3 py-1.5 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition self-start sm:self-auto"
             >
-              Standard
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                loadScenario(50000, 20000, [
-                  {
-                    id: 'nabil-test',
-                    symbol: 'NABIL',
-                    companyName: 'Nabil Bank Limited',
-                    shares: 100,
-                    averagePurchasePrice: 500,
-                    currentPrice: 600,
-                  },
-                ])
-              }
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
-            >
-              NABIL Only
-            </button>
-            <button
-              type="button"
-              onClick={() => loadScenario(120000, 45000, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
-            >
-              High Surplus
-            </button>
-            <button
-              type="button"
-              onClick={() => loadScenario(0, 0, [])}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition cursor-pointer"
-            >
-              Zero State
-            </button>
+              Sign In / Sign Up
+            </Link>
           </div>
-        </div>
+        )}
 
         {/* 8 Key Metric Cards Section */}
         <section className="space-y-3 sm:space-y-4">
@@ -378,7 +409,13 @@ export default function HomePage() {
               </p>
             </div>
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 self-start sm:self-auto border border-emerald-300 dark:border-emerald-800">
-              {savingsRate >= 30 ? 'Strong Financial Health' : savingsRate > 0 ? 'Moderate Health' : 'Review Spending'}
+              {!hasAnyData
+                ? 'No Data Logged'
+                : savingsRate >= 30
+                ? 'Strong Financial Health'
+                : savingsRate > 0
+                ? 'Moderate Health'
+                : 'Review Spending'}
             </span>
           </div>
 
@@ -411,7 +448,7 @@ export default function HomePage() {
                   </>
                 ) : (
                   <>
-                    No monthly surplus currently available. Focus on minimizing variable expenses to unlock investment capacity.
+                    No monthly surplus recorded yet. Log your income and expenses to unlock investment capacity.
                   </>
                 )}
               </p>
@@ -428,7 +465,7 @@ export default function HomePage() {
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 {totalInvested > 0 ? (
                   <>
-                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {holdings.length} holdings against a cost basis of {formatNepaliCurrency(totalInvested)}.
+                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {holdings.length} {holdings.length === 1 ? 'holding' : 'holdings'} against a cost basis of {formatNepaliCurrency(totalInvested)}.
                   </>
                 ) : (
                   <>
@@ -436,41 +473,6 @@ export default function HomePage() {
                   </>
                 )}
               </p>
-            </div>
-          </div>
-
-          {/* Quick Adjustment Inputs */}
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              Want to adjust monthly cash figures? Update the fields below for real-time recalculation:
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs">
-                <label htmlFor="quick-income" className="font-semibold text-zinc-600 dark:text-zinc-400">Income:</label>
-                <div className="relative">
-                  <input
-                    id="quick-income"
-                    type="number"
-                    value={monthlyIncomeInput}
-                    onChange={(e) => setMonthlyIncomeInput(e.target.value)}
-                    className="w-24 sm:w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <label htmlFor="quick-expenses" className="font-semibold text-zinc-600 dark:text-zinc-400">Expenses:</label>
-                <div className="relative">
-                  <input
-                    id="quick-expenses"
-                    type="number"
-                    value={monthlyExpensesInput}
-                    onChange={(e) => setMonthlyExpensesInput(e.target.value)}
-                    className="w-24 sm:w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
             </div>
           </div>
         </section>

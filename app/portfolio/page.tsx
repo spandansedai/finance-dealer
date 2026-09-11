@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { StockHolding } from '@/types';
@@ -8,40 +8,29 @@ import {
   calculatePortfolioAnalytics,
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
+import { supabase } from '@/lib/supabase';
 
-const INITIAL_HOLDINGS: StockHolding[] = [
-  {
-    id: 'holding-nabil',
-    symbol: 'NABIL',
-    companyName: 'Nabil Bank Limited',
-    shares: 100,
-    averagePurchasePrice: 500,
-    currentPrice: 600,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-gbime',
-    symbol: 'GBIME',
-    companyName: 'Global IME Bank Limited',
-    shares: 200,
-    averagePurchasePrice: 220,
-    currentPrice: 245,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-hdl',
-    symbol: 'HDL',
-    companyName: 'Himalayan Distillery Limited',
-    shares: 50,
-    averagePurchasePrice: 1800,
-    currentPrice: 1650,
-    sector: 'Manufacturing',
-  },
-];
+const rowToHolding = (row: any): StockHolding => ({
+  id: row.id,
+  symbol: (row.symbol || '').toUpperCase(),
+  companyName: row.company_name ?? row.companyName ?? row.symbol,
+  shares: Number(row.shares ?? row.units ?? 0),
+  averagePurchasePrice: Number(
+    row.average_purchase_price ?? row.averagePurchasePrice ?? row.buy_price ?? row.buyPrice ?? 0
+  ),
+  currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
+  sector: row.sector ?? undefined,
+});
 
 export default function PortfolioPage() {
-  const [holdings, setHoldings] = useState<StockHolding[]>(INITIAL_HOLDINGS);
+  const [holdings, setHoldings] = useState<StockHolding[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Auth + data loading state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loadingHoldings, setLoadingHoldings] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form State
   const [symbol, setSymbol] = useState<string>('');
@@ -50,10 +39,62 @@ export default function PortfolioPage() {
   const [averagePurchasePrice, setAveragePurchasePrice] = useState<string>('');
   const [currentPrice, setCurrentPrice] = useState<string>('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Inline Current Price Editing State
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPriceInput, setTempPriceInput] = useState<string>('');
+
+  const loadHoldings = async () => {
+    setLoadingHoldings(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from('holdings')
+      .select('*');
+
+    if (error) {
+      setLoadError('Could not load your stock holdings. Please try refreshing the page.');
+      setLoadingHoldings(false);
+      return;
+    }
+
+    setHoldings((data ?? []).map(rowToHolding));
+    setLoadingHoldings(false);
+  };
+
+  // Check auth session, then load this user's holdings from Supabase.
+  useEffect(() => {
+    let isMounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      setUserId(data.user?.id ?? null);
+      setAuthChecked(true);
+
+      if (data.user) {
+        await loadHoldings();
+      }
+    };
+
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUserId(session?.user?.id ?? null);
+      if (session?.user) {
+        await loadHoldings();
+      } else {
+        setHoldings([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Run pure calculations
   const portfolioSummary = calculatePortfolioAnalytics(holdings);
@@ -69,9 +110,14 @@ export default function PortfolioPage() {
   const isOverallLoss = totalProfitLoss < 0;
 
   // Add new holding handler
-  const handleAddHolding = (e: React.FormEvent) => {
+  const handleAddHolding = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+
+    if (!userId) {
+      setFormError('You need to be signed in to add stock holdings.');
+      return;
+    }
 
     const cleanSymbol = symbol.trim().toUpperCase();
     if (!cleanSymbol) {
@@ -97,16 +143,29 @@ export default function PortfolioPage() {
       return;
     }
 
-    const newHolding: StockHolding = {
-      id: `holding-${cleanSymbol}-${Date.now()}`,
-      symbol: cleanSymbol,
-      companyName: companyName.trim() || `${cleanSymbol} Security`,
-      shares: parsedShares,
-      averagePurchasePrice: parsedAvgPrice,
-      currentPrice: parsedCurrentPrice,
-    };
+    setSubmitting(true);
 
-    setHoldings((prev) => [newHolding, ...prev]);
+    const { data, error } = await supabase
+      .from('holdings')
+      .insert({
+        user_id: userId,
+        symbol: cleanSymbol,
+        company_name: companyName.trim() || `${cleanSymbol} Security`,
+        shares: parsedShares,
+        average_purchase_price: parsedAvgPrice,
+        current_price: parsedCurrentPrice,
+      })
+      .select()
+      .single();
+
+    setSubmitting(false);
+
+    if (error || !data) {
+      setFormError('Could not save the holding. Please try again.');
+      return;
+    }
+
+    setHoldings((prev) => [rowToHolding(data), ...prev]);
 
     // Reset Form
     setSymbol('');
@@ -118,7 +177,16 @@ export default function PortfolioPage() {
   };
 
   // Delete Holding
-  const handleDeleteHolding = (id: string) => {
+  const handleDeleteHolding = async (id?: string) => {
+    if (!id) return;
+
+    const { error } = await supabase.from('holdings').delete().eq('id', id);
+
+    if (error) {
+      setLoadError('Could not delete that holding. Please try again.');
+      return;
+    }
+
     setHoldings((prev) => prev.filter((h) => h.id !== id));
   };
 
@@ -129,9 +197,19 @@ export default function PortfolioPage() {
   };
 
   // Save inline price edit
-  const handleSavePriceEdit = (id: string) => {
+  const handleSavePriceEdit = async (id: string) => {
     const parsed = parseFloat(tempPriceInput);
     if (!isNaN(parsed) && parsed >= 0) {
+      const { error } = await supabase
+        .from('holdings')
+        .update({ current_price: parsed })
+        .eq('id', id);
+
+      if (error) {
+        setLoadError('Could not update stock price. Please try again.');
+        return;
+      }
+
       setHoldings((prev) =>
         prev.map((h) => (h.id === id ? { ...h, currentPrice: parsed } : h))
       );
@@ -146,26 +224,16 @@ export default function PortfolioPage() {
     setTempPriceInput('');
   };
 
-  // Quick Preset Handlers
-  const handleLoadNabilTest = () => {
-    setHoldings([
-      {
-        id: 'holding-nabil-test',
-        symbol: 'NABIL',
-        companyName: 'Nabil Bank Limited',
-        shares: 100,
-        averagePurchasePrice: 500,
-        currentPrice: 600,
-        sector: 'Commercial Banks',
-      },
-    ]);
-  };
+  const handleClearAll = async () => {
+    if (!userId) return;
 
-  const handleResetSample = () => {
-    setHoldings(INITIAL_HOLDINGS);
-  };
+    const { error } = await supabase.from('holdings').delete().eq('user_id', userId);
 
-  const handleClearAll = () => {
+    if (error) {
+      setLoadError('Could not clear your holdings. Please try again.');
+      return;
+    }
+
     setHoldings([]);
   };
 
@@ -182,6 +250,15 @@ export default function PortfolioPage() {
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        {loadError && (
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
+            {loadError}
+          </div>
+        )}
+        {loadingHoldings && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading holdings...</div>
+        )}
+
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div>
@@ -190,7 +267,7 @@ export default function PortfolioPage() {
                 NEPSE Portfolio Analytics
               </h1>
               <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.5 Active
+                v0.6 Active
               </span>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -198,20 +275,6 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={handleLoadNabilTest}
-              className="px-3 py-2 text-xs font-semibold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition shadow-xs cursor-pointer"
-            >
-              🧪 NABIL Test
-            </button>
-            <button
-              type="button"
-              onClick={handleResetSample}
-              className="px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 transition shadow-xs cursor-pointer"
-            >
-              Sample Data
-            </button>
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
@@ -230,7 +293,7 @@ export default function PortfolioPage() {
                 Portfolio Totals &amp; Performance
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Pure calculations based on {holdings.length} stock {holdings.length === 1 ? 'holding' : 'holdings'}.
+                Calculations computed from your {holdings.length} stock {holdings.length === 1 ? 'holding' : 'holdings'}.
               </p>
             </div>
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
@@ -301,24 +364,6 @@ export default function PortfolioPage() {
               subtitle="Overall return on invested capital"
             />
           </div>
-
-          {/* Test Case Verification Callout */}
-          {holdings.length === 1 && holdings[0].symbol === 'NABIL' && holdings[0].shares === 100 && holdings[0].averagePurchasePrice === 500 && holdings[0].currentPrice === 600 && (
-            <div className="p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 text-xs text-purple-900 dark:text-purple-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="font-bold text-sm flex items-center gap-1.5">
-                  <span>✅</span>
-                  <span>V0.5 Test Case Active: NABIL (100 shares @ Rs. 500 buy, Rs. 600 current)</span>
-                </div>
-                <div className="text-purple-700 dark:text-purple-300 font-mono text-[11px] sm:text-xs">
-                  Invested: <strong>Rs. 50,000</strong> | Current Value: <strong>Rs. 60,000</strong> | Profit: <strong>Rs. 10,000</strong> | Return: <strong>20.00%</strong>
-                </div>
-              </div>
-              <span className="px-2.5 py-1 rounded-md bg-purple-200 dark:bg-purple-800/60 font-semibold text-[11px] self-start sm:self-auto">
-                Test Passed
-              </span>
-            </div>
-          )}
         </section>
 
         {/* Main Content: Add Stock Holding Form + Holdings Table */}
@@ -330,7 +375,7 @@ export default function PortfolioPage() {
                 Add Stock Holding
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Record your shares, purchase price, and manually entered current market price.
+                Record your shares, purchase price, and current market price.
               </p>
             </div>
 
@@ -439,9 +484,10 @@ export default function PortfolioPage() {
               {/* Submit Button */}
               <button
                 type="submit"
-                className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 transition shadow-sm active:scale-98 cursor-pointer"
+                disabled={submitting}
+                className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 transition shadow-sm active:scale-98 cursor-pointer"
               >
-                + Add Stock Holding
+                {submitting ? 'Saving...' : '+ Add Stock Holding'}
               </button>
             </form>
           </div>
@@ -481,25 +527,9 @@ export default function PortfolioPage() {
                 </p>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto">
                   {holdings.length === 0
-                    ? 'Use the form on the left or click "Load Sample Data" to start tracking your NEPSE portfolio.'
+                    ? 'Use the form on the left to start tracking your NEPSE portfolio.'
                     : 'No holdings match your search query.'}
                 </p>
-                {holdings.length === 0 && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                    <button
-                      onClick={handleLoadNabilTest}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 hover:bg-purple-200 transition cursor-pointer"
-                    >
-                      Load NABIL Test Case
-                    </button>
-                    <button
-                      onClick={handleResetSample}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 transition cursor-pointer"
-                    >
-                      Load Sample Data
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="overflow-x-auto w-full">

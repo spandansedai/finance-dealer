@@ -7,6 +7,24 @@ import { supabase } from '@/lib/supabase';
 
 export const Navbar = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   const navLinks = [
     { href: '/', label: 'Dashboard' },
@@ -59,10 +77,10 @@ export const Navbar = () => {
         </div>
 
         {/* Mobile Navigation Quick Bar */}
-        <div className="flex md:hidden items-center gap-2 text-xs">
+        <div className="flex md:hidden items-center gap-1.5 text-xs">
           <Link
             href="/"
-            className={`px-2.5 py-1 rounded-md ${
+            className={`px-2 py-1 rounded-md ${
               pathname === '/' || pathname === '/dashboard' ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
@@ -70,7 +88,7 @@ export const Navbar = () => {
           </Link>
           <Link
             href="/expenses"
-            className={`px-2.5 py-1 rounded-md ${
+            className={`px-2 py-1 rounded-md ${
               pathname.startsWith('/expenses') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
@@ -78,17 +96,50 @@ export const Navbar = () => {
           </Link>
           <Link
             href="/portfolio"
-            className={`px-2.5 py-1 rounded-md ${
+            className={`px-2 py-1 rounded-md ${
               pathname.startsWith('/portfolio') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
             Portfolio
           </Link>
+          {userEmail ? (
+            <button
+              onClick={handleSignOut}
+              className="px-2 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px]"
+            >
+              Sign Out
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-medium"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
 
-        <div className="hidden sm:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Unified Financial Engine Active</span>
+        {/* Desktop Auth Controls */}
+        <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+          {userEmail ? (
+            <>
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="max-w-[160px] truncate font-medium text-zinc-700 dark:text-zinc-300">{userEmail}</span>
+              <button
+                onClick={handleSignOut}
+                className="px-2.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-xs"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </header>
