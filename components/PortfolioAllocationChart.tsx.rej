@@ -1,0 +1,29 @@
+diff a/components/PortfolioAllocationChart.tsx b/components/PortfolioAllocationChart.tsx	(rejected hunks)
+@@ -11,11 +11,18 @@ import {
+ import { HoldingAnalytics } from '@/types';
+ import { formatNepaliCurrency } from '@/lib/calculations/finance';
+ 
++/**
++ * Donut chart showing what percentage of the portfolio's current value each
++ * stock holding represents. Holdings with zero current value are excluded
++ * since they'd render as an invisible zero-width slice.
++ */
+ interface PortfolioAllocationChartProps {
+   holdings: HoldingAnalytics[];
+   totalCurrentValue: number;
+ }
+ 
++// Fixed color palette cycled through by index so each holding gets a
++// consistent, distinguishable slice color regardless of how many there are.
+ const ALLOCATION_COLORS = [
+   '#10b981', // emerald-500
+   '#6366f1', // indigo-500
+@@ -31,6 +38,8 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
+   holdings,
+   totalCurrentValue,
+ }) => {
++  // See CashFlowChart for why we wait for mount before rendering the
++  // ResponsiveContainer-based chart.
+   const [isMounted, setIsMounted] = useState(false);
+ 
+   useEffect(() => {

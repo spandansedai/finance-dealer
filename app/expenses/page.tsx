@@ -1,9 +1,37 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Transaction, TransactionType } from '@/types';
 import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from '@/lib/calculations/finance';
+import { supabase } from '@/lib/supabase';
+import { useGuestMode } from '@/context/GuestModeContext';
+
+/**
+ * Income & Expense tracking page. Authenticated users' transactions are read
+ * from and written to the Supabase `transactions` table (RLS-scoped to their
+ * own user_id); logged-out visitors instead use the in-memory guest context
+ * (see GuestModeContext) so they can try the feature without an account.
+ */
+
+// Shape of a row as stored in the `transactions` table.
+interface TransactionRow {
+  id: string;
+  type: TransactionType;
+  amount: number;
+  category: string;
+  description: string;
+  date: string;
+}
+
+const rowToTransaction = (row: TransactionRow): Transaction => ({
+  id: row.id,
+  type: row.type,
+  amount: Number(row.amount),
+  category: row.category,
+  description: row.description,
+  date: row.date,
+});
 
 const INCOME_CATEGORIES = [
   'Salary',
@@ -26,61 +54,23 @@ const EXPENSE_CATEGORIES = [
   'Other Expense',
 ];
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx-1',
-    type: 'income',
-    amount: 65000,
-    category: 'Salary',
-    description: 'Primary Software Engineering Salary',
-    date: '2026-08-01',
-  },
-  {
-    id: 'tx-2',
-    type: 'income',
-    amount: 15000,
-    category: 'Side Hustle',
-    description: 'Consulting & Website Maintenance',
-    date: '2026-08-10',
-  },
-  {
-    id: 'tx-3',
-    type: 'expense',
-    amount: 18000,
-    category: 'Rent',
-    description: 'Apartment monthly rent (Kathmandu)',
-    date: '2026-08-02',
-  },
-  {
-    id: 'tx-4',
-    type: 'expense',
-    amount: 8500,
-    category: 'Food & Groceries',
-    description: 'Bhatbhateni supermarket monthly groceries',
-    date: '2026-08-05',
-  },
-  {
-    id: 'tx-5',
-    type: 'expense',
-    amount: 3200,
-    category: 'Utilities',
-    description: 'Electricity (NEA), Water, & WorldLink fiber internet',
-    date: '2026-08-07',
-  },
-  {
-    id: 'tx-6',
-    type: 'expense',
-    amount: 4500,
-    category: 'Entertainment',
-    description: 'Weekend dining & movies',
-    date: '2026-08-12',
-  },
-];
-
 export default function ExpensesPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const {
+    guestTransactions,
+    addGuestTransaction,
+    deleteGuestTransaction,
+    clearGuestTransactions,
+  } = useGuestMode();
+
+  const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Auth + data loading state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Form State
   const [type, setType] = useState<TransactionType>('expense');
@@ -89,6 +79,64 @@ export default function ExpensesPage() {
   const [description, setDescription] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetches the current user's transactions from Supabase, newest first.
+  // Relies on RLS to scope results to the logged-in user — no explicit
+  // user_id filter is needed here.
+  const loadTransactions = async () => {
+    setLoadingTransactions(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, type, amount, category, description, date')
+      .order('date', { ascending: false });
+
+    if (error) {
+      setLoadError('Could not load your transactions. Please try refreshing the page.');
+      setLoadingTransactions(false);
+      return;
+    }
+
+    setDbTransactions((data ?? []).map(rowToTransaction));
+    setLoadingTransactions(false);
+  };
+
+  // Check auth session, then load this user's transactions from Supabase.
+  useEffect(() => {
+    let isMounted = true;
+
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!isMounted) return;
+
+      const currentUserId = data.user?.id ?? null;
+      setUserId(currentUserId);
+      setAuthChecked(true);
+
+      if (currentUserId) {
+        await loadTransactions();
+      }
+    };
+
+    init();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUserId = session?.user?.id ?? null;
+      setUserId(currentUserId);
+      if (currentUserId) {
+        await loadTransactions();
+      } else {
+        setDbTransactions([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   // Switch category list when type changes
   const handleTypeChange = (newType: TransactionType) => {
@@ -100,7 +148,7 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleAddTransaction = (e: React.FormEvent) => {
+  const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -115,16 +163,42 @@ export default function ExpensesPage() {
       return;
     }
 
-    const newTransaction: Transaction = {
-      id: `tx-${Date.now()}`,
-      type,
-      amount: parsedAmount,
-      category,
-      description: description.trim(),
-      date: date || new Date().toISOString().split('T')[0],
-    };
+    const txDate = date || new Date().toISOString().split('T')[0];
 
-    setTransactions((prev) => [newTransaction, ...prev]);
+    // Branch: Authenticated vs Guest
+    if (userId) {
+      setSubmitting(true);
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          type,
+          amount: parsedAmount,
+          category,
+          description: description.trim(),
+          date: txDate,
+        })
+        .select('id, type, amount, category, description, date')
+        .single();
+
+      setSubmitting(false);
+
+      if (error || !data) {
+        setFormError('Could not save the transaction. Please try again.');
+        return;
+      }
+
+      setDbTransactions((prev) => [rowToTransaction(data), ...prev]);
+    } else {
+      // Guest mode: save to in-memory React context
+      addGuestTransaction({
+        type,
+        amount: parsedAmount,
+        category,
+        description: description.trim(),
+        date: txDate,
+      });
+    }
 
     // Reset Form
     setAmount('');
@@ -132,13 +206,44 @@ export default function ExpensesPage() {
     setFormError(null);
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((item) => item.id !== id));
+  const handleDeleteTransaction = async (id: string) => {
+    if (userId) {
+      const { error } = await supabase.from('transactions').delete().eq('id', id);
+
+      if (error) {
+        setLoadError('Could not delete that transaction. Please try again.');
+        return;
+      }
+
+      setDbTransactions((prev) => prev.filter((item) => item.id !== id));
+    } else {
+      // Guest mode delete
+      deleteGuestTransaction(id);
+    }
   };
 
+  const handleClearAll = async () => {
+    if (userId) {
+      const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
+
+      if (error) {
+        setLoadError('Could not clear your records. Please try again.');
+        return;
+      }
+
+      setDbTransactions([]);
+    } else {
+      // Guest mode clear
+      clearGuestTransactions();
+    }
+  };
+
+  // Active transaction set (DB if logged in, in-memory if guest)
+  const activeTransactions = userId ? dbTransactions : guestTransactions;
+
   // Calculations
-  const totalIncome = calculateTotalByType(transactions, 'income');
-  const totalExpenses = calculateTotalByType(transactions, 'expense');
+  const totalIncome = calculateTotalByType(activeTransactions, 'income');
+  const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
   const netSurplus = calculateNetSavings(totalIncome, totalExpenses);
   const savingsRate = calculateSavingsRate(totalIncome, totalExpenses);
 
@@ -150,7 +255,7 @@ export default function ExpensesPage() {
   };
 
   // Filtered List
-  const filteredTransactions = transactions.filter((item) => {
+  const filteredTransactions = activeTransactions.filter((item) => {
     const matchesType = filterType === 'all' || item.type === filterType;
     const matchesSearch =
       item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,25 +264,54 @@ export default function ExpensesPage() {
   });
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Income & Expense Tracking</h1>
-              <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.2 Active
+    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+        {loadError && (
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
+            {loadError}
+          </div>
+        )}
+        {loadingTransactions && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading transactions...</div>
+        )}
+
+        {/* Guest Mode Notice Banner */}
+        {!userId && authChecked && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
+                Try It Out Mode
+              </span>
+              <span>
+                Adding entries in <strong>Guest Mode</strong>. Transactions are kept in memory and will reset when you refresh.
               </span>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <Link
+              href="/login"
+              className="px-3 py-1 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs"
+            >
+              Sign Up / Sign In to Save
+            </Link>
+          </div>
+        )}
+
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Income & Expense Tracking</h1>
+              <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
+                v0.6 Active
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
               Log daily expenditures, track income sources, and compute your net monthly surplus for NEPSE investments.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-xs"
             >
               <span>←</span>
               <span>Back to Dashboard</span>
@@ -188,26 +322,26 @@ export default function ExpensesPage() {
         {/* Breakdown Metric Cards */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+            <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
               Monthly Cash Flow Breakdown
             </h2>
             <span className="text-xs text-zinc-500">
-              {transactions.length} total logged entries
+              {activeTransactions.length} total logged entries
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
             {/* Total Income Card */}
-            <div className="p-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-xs transition-all hover:shadow-md">
+            <div className="p-5 sm:p-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-xs transition-all hover:shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Income</span>
+                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Income</span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
-                  {transactions.filter((t) => t.type === 'income').length} Sources
+                  {activeTransactions.filter((t) => t.type === 'income').length} Sources
                 </span>
               </div>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
+              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
+                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 break-words">
                   {formatCurrency(totalIncome)}
                 </span>
               </div>
@@ -217,16 +351,16 @@ export default function ExpensesPage() {
             </div>
 
             {/* Total Expenses Card */}
-            <div className="p-6 rounded-2xl border border-rose-500/20 bg-rose-950/10 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 shadow-xs transition-all hover:shadow-md">
+            <div className="p-5 sm:p-6 rounded-2xl border border-rose-500/20 bg-rose-950/10 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 shadow-xs transition-all hover:shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Expenses</span>
+                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Expenses</span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300">
-                  {transactions.filter((t) => t.type === 'expense').length} Logged
+                  {activeTransactions.filter((t) => t.type === 'expense').length} Logged
                 </span>
               </div>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
+              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
+                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 break-words">
                   {formatCurrency(totalExpenses)}
                 </span>
               </div>
@@ -236,55 +370,55 @@ export default function ExpensesPage() {
             </div>
 
             {/* Net Surplus Card */}
-            <div className="p-6 rounded-2xl border border-blue-500/20 bg-blue-950/10 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 shadow-xs transition-all hover:shadow-md">
+            <div className="p-5 sm:p-6 rounded-2xl border border-blue-500/20 bg-blue-950/10 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 shadow-xs transition-all hover:shadow-md sm:col-span-2 md:col-span-1">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Net Monthly Surplus</span>
+                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Net Monthly Surplus</span>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
                   {savingsRate}% Savings Rate
                 </span>
               </div>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className={`text-3xl font-extrabold tracking-tight ${netSurplus >= 0 ? 'text-zinc-900 dark:text-zinc-50' : 'text-rose-600 dark:text-rose-400'}`}>
+              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
+                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
+                <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight break-words ${netSurplus >= 0 ? 'text-zinc-900 dark:text-zinc-50' : 'text-rose-600 dark:text-rose-400'}`}>
                   {formatCurrency(netSurplus)}
                 </span>
               </div>
               <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Investment Capacity (Income − Expenses) ready for NEPSE
+                Investment Capacity ready for NEPSE
               </p>
             </div>
           </div>
 
           {/* Surplus Investment Banner */}
           {netSurplus > 0 ? (
-            <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+            <div className="p-3.5 sm:p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-xs text-emerald-800 dark:text-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">💡</span>
+                <span className="text-base shrink-0">💡</span>
                 <span>
-                  <strong>Investment Ready:</strong> You have <strong>Rs. {formatCurrency(netSurplus)}</strong> available this month to deploy into NEPSE stocks or your emergency fund.
+                  <strong>Investment Ready:</strong> You have <strong>Rs. {formatCurrency(netSurplus)}</strong> available this month to deploy into NEPSE stocks.
                 </span>
               </div>
-              <Link href="/portfolio" className="font-semibold underline hover:text-emerald-900 dark:hover:text-emerald-200">
+              <Link href="/portfolio" className="font-semibold underline hover:text-emerald-900 dark:hover:text-emerald-200 self-start sm:self-auto shrink-0">
                 View Portfolio →
               </Link>
             </div>
           ) : netSurplus < 0 ? (
-            <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
-              <span className="text-base">⚠️</span>
+            <div className="p-3.5 sm:p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
+              <span className="text-base shrink-0">⚠️</span>
               <span>
-                <strong>Deficit Alert:</strong> Your expenses exceed your income by <strong>Rs. {formatCurrency(Math.abs(netSurplus))}</strong> this month. Review your variable expenses.
+                <strong>Deficit Alert:</strong> Your expenses exceed your income by <strong>Rs. {formatCurrency(Math.abs(netSurplus))}</strong> this month.
               </span>
             </div>
           ) : null}
         </section>
 
         {/* Main Content: Form + Transactions List */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           {/* Income & Expense Input Form */}
-          <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xs space-y-6">
+          <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Add Transaction
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                Add Transaction {!userId && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Guest Mode)</span>}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                 Record a new income stream or daily expense entry.
@@ -307,7 +441,7 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     onClick={() => handleTypeChange('income')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       type === 'income'
                         ? 'bg-emerald-600 text-white shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -319,7 +453,7 @@ export default function ExpensesPage() {
                   <button
                     type="button"
                     onClick={() => handleTypeChange('expense')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                       type === 'expense'
                         ? 'bg-rose-600 text-white shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -349,7 +483,7 @@ export default function ExpensesPage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
-                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                   />
                 </div>
               </div>
@@ -363,7 +497,7 @@ export default function ExpensesPage() {
                   id="category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 >
                   {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
                     <option key={cat} value={cat}>
@@ -385,7 +519,7 @@ export default function ExpensesPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 />
               </div>
 
@@ -399,7 +533,7 @@ export default function ExpensesPage() {
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 />
               </div>
 
@@ -412,7 +546,7 @@ export default function ExpensesPage() {
                     : 'bg-rose-600 hover:bg-rose-500 focus:ring-2 focus:ring-rose-400'
                 }`}
               >
-                + Add {type === 'income' ? 'Income' : 'Expense'} Entry
+                {submitting ? 'Saving...' : `+ Add ${type === 'income' ? 'Income' : 'Expense'} Entry`}
               </button>
             </form>
           </div>
@@ -420,48 +554,48 @@ export default function ExpensesPage() {
           {/* Logged Transactions Table Section */}
           <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs overflow-hidden">
             {/* Table Top Controls */}
-            <div className="p-5 border-b border-zinc-200 dark:border-zinc-800 space-y-4">
+            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 space-y-3 sm:space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
+                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
                     Logged Transactions
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Showing {filteredTransactions.length} of {transactions.length} records
+                    Showing {filteredTransactions.length} of {activeTransactions.length} records
                   </p>
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-medium self-start sm:self-auto">
+                <div className="flex flex-wrap items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-medium self-start sm:self-auto">
                   <button
                     onClick={() => setFilterType('all')}
-                    className={`px-3 py-1.5 rounded-lg transition ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
                       filterType === 'all'
                         ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    All ({transactions.length})
+                    All ({activeTransactions.length})
                   </button>
                   <button
                     onClick={() => setFilterType('income')}
-                    className={`px-3 py-1.5 rounded-lg transition ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
                       filterType === 'income'
                         ? 'bg-emerald-600 text-white font-semibold shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    Income ({transactions.filter((t) => t.type === 'income').length})
+                    Income ({activeTransactions.filter((t) => t.type === 'income').length})
                   </button>
                   <button
                     onClick={() => setFilterType('expense')}
-                    className={`px-3 py-1.5 rounded-lg transition ${
+                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
                       filterType === 'expense'
                         ? 'bg-rose-600 text-white font-semibold shadow-xs'
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                     }`}
                   >
-                    Expenses ({transactions.filter((t) => t.type === 'expense').length})
+                    Expenses ({activeTransactions.filter((t) => t.type === 'expense').length})
                   </button>
                 </div>
               </div>
@@ -473,42 +607,34 @@ export default function ExpensesPage() {
                   placeholder="Search transactions by note or category..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                  className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-base sm:text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
             </div>
 
             {/* Table */}
             {filteredTransactions.length === 0 ? (
-              <div className="p-12 text-center space-y-3">
+              <div className="p-8 sm:p-12 text-center space-y-3">
                 <div className="text-3xl">📝</div>
                 <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                   No transactions found
                 </p>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-                  {transactions.length === 0
+                  {activeTransactions.length === 0
                     ? 'Use the form on the left to add your first income or expense entry.'
                     : 'No records match your search filter.'}
                 </p>
-                {transactions.length === 0 && (
-                  <button
-                    onClick={() => setTransactions(INITIAL_TRANSACTIONS)}
-                    className="mt-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
-                  >
-                    Load Sample Data
-                  </button>
-                )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full min-w-[520px] text-left text-sm">
                   <thead className="bg-zinc-50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-medium border-b border-zinc-200 dark:border-zinc-800">
                     <tr>
-                      <th scope="col" className="py-3 px-4">Date</th>
-                      <th scope="col" className="py-3 px-4">Description</th>
-                      <th scope="col" className="py-3 px-4">Category</th>
-                      <th scope="col" className="py-3 px-4 text-right">Amount</th>
-                      <th scope="col" className="py-3 px-4 text-center">Action</th>
+                      <th scope="col" className="py-3 px-3 sm:px-4">Date</th>
+                      <th scope="col" className="py-3 px-3 sm:px-4">Description</th>
+                      <th scope="col" className="py-3 px-3 sm:px-4">Category</th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 text-right">Amount</th>
+                      <th scope="col" className="py-3 px-3 sm:px-4 text-center">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
@@ -520,21 +646,21 @@ export default function ExpensesPage() {
                           className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors group"
                         >
                           {/* Date */}
-                          <td className="py-3.5 px-4 text-xs font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-xs font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
                             {item.date}
                           </td>
 
                           {/* Description */}
-                          <td className="py-3.5 px-4">
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm">
+                          <td className="py-3.5 px-3 sm:px-4">
+                            <div className="font-medium text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm max-w-[160px] sm:max-w-none truncate">
                               {item.description}
                             </div>
                           </td>
 
                           {/* Category Badge */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              className={`inline-flex items-center px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-medium ${
                                 isIncome
                                   ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50'
                                   : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
@@ -545,7 +671,7 @@ export default function ExpensesPage() {
                           </td>
 
                           {/* Amount */}
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-xs sm:text-sm whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono font-bold text-xs sm:text-sm whitespace-nowrap">
                             <span
                               className={
                                 isIncome
@@ -558,11 +684,11 @@ export default function ExpensesPage() {
                           </td>
 
                           {/* Delete Button */}
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                          <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
                             <button
                               onClick={() => handleDeleteTransaction(item.id)}
                               title="Delete Transaction"
-                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors inline-flex items-center justify-center"
+                              className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors inline-flex items-center justify-center cursor-pointer"
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -590,7 +716,7 @@ export default function ExpensesPage() {
 
             {/* Table Footer */}
             {filteredTransactions.length > 0 && (
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="p-3.5 sm:p-4 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                 <span>
                   Net for selected list:{' '}
                   <strong className={
@@ -608,8 +734,8 @@ export default function ExpensesPage() {
                   </strong>
                 </span>
                 <button
-                  onClick={() => setTransactions([])}
-                  className="text-xs text-zinc-500 hover:text-rose-600 transition underline"
+                  onClick={handleClearAll}
+                  className="text-xs text-zinc-500 hover:text-rose-600 transition underline cursor-pointer"
                 >
                   Clear all records
                 </button>

@@ -11,11 +11,18 @@ import {
 import { HoldingAnalytics } from '@/types';
 import { formatNepaliCurrency } from '@/lib/calculations/finance';
 
+/**
+ * Donut chart showing what percentage of the portfolio's current value each
+ * stock holding represents. Holdings with zero current value are excluded
+ * since they'd render as an invisible zero-width slice.
+ */
 interface PortfolioAllocationChartProps {
   holdings: HoldingAnalytics[];
   totalCurrentValue: number;
 }
 
+// Fixed color palette cycled through by index so each holding gets a
+// consistent, distinguishable slice color regardless of how many there are.
 const ALLOCATION_COLORS = [
   '#10b981', // emerald-500
   '#6366f1', // indigo-500
@@ -31,6 +38,8 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
   holdings,
   totalCurrentValue,
 }) => {
+  // See CashFlowChart for why we wait for mount before rendering the
+  // ResponsiveContainer-based chart.
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -51,7 +60,7 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   if (!isMounted) {
     return (
-      <div className="h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
+      <div className="h-56 sm:h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
         <span className="text-xs text-zinc-400">Loading chart...</span>
       </div>
     );
@@ -59,7 +68,7 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   if (isEmpty) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
+      <div className="h-56 sm:h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
         <div className="text-2xl mb-2">📊</div>
         <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
           No Stock Allocation Data
@@ -73,15 +82,15 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   return (
     <div className="space-y-4">
-      <div className="h-64 w-full">
+      <div className="h-56 sm:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={55}
-              outerRadius={85}
+              innerRadius={50}
+              outerRadius={80}
               paddingAngle={3}
               dataKey="value"
             >
@@ -122,7 +131,7 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
       </div>
 
       {/* Interactive Legend List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 max-h-48 overflow-y-auto">
         {chartData.map((item) => (
           <div
             key={item.name}
@@ -136,7 +145,7 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
               <span className="font-bold text-zinc-900 dark:text-zinc-100">
                 {item.name}
               </span>
-              <span className="text-[11px] text-zinc-400 truncate">
+              <span className="text-[11px] text-zinc-400 truncate max-w-[90px] sm:max-w-[110px]">
                 {item.fullName}
               </span>
             </div>

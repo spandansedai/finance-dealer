@@ -13,6 +13,10 @@ import {
 } from 'recharts';
 import { formatNepaliCurrency } from '@/lib/calculations/finance';
 
+/**
+ * Bar chart comparing monthly income, expenses, and the resulting savings
+ * (or deficit, if expenses exceeded income) on the dashboard.
+ */
 interface CashFlowChartProps {
   income: number;
   expenses: number;
@@ -24,6 +28,9 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   expenses,
   savings,
 }) => {
+  // Recharts' ResponsiveContainer measures the DOM after mount, so rendering it
+  // during SSR/first paint can show a 0-size chart. Delaying render until after
+  // mount avoids that flash of a broken/empty chart.
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -46,6 +53,8 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
       label: 'Monthly Outflow',
     },
     {
+      // The third bar relabels itself depending on whether the user is
+      // actually saving money or running a deficit for the month.
       category: isDeficit ? 'Deficit' : 'Savings',
       amount: Math.abs(savings),
       fill: isDeficit ? '#e11d48' : '#3b82f6', // rose-600 or blue-500
@@ -57,7 +66,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   if (!isMounted) {
     return (
-      <div className="h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
+      <div className="h-56 sm:h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
         <span className="text-xs text-zinc-400">Loading chart...</span>
       </div>
     );
@@ -65,7 +74,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   if (isEmpty) {
     return (
-      <div className="h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
+      <div className="h-56 sm:h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
         <div className="text-2xl mb-2">📉</div>
         <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
           No Cash Flow Data
@@ -79,29 +88,31 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="h-64 w-full">
+      <div className="h-56 sm:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
-            margin={{ top: 15, right: 15, left: 5, bottom: 5 }}
+            margin={{ top: 15, right: 10, left: -10, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
             <XAxis
               dataKey="category"
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 12, fill: '#71717a' }}
+              tick={{ fontSize: 11, fill: '#71717a' }}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 11, fill: '#71717a' }}
+              tick={{ fontSize: 10, fill: '#71717a' }}
               tickFormatter={(val) =>
+                // Abbreviate large NPR amounts using lakhs (1L = 100,000) since
+                // that's the standard way large numbers are read in Nepal.
                 val >= 100000
-                  ? `Rs. ${(val / 100000).toFixed(1)}L`
+                  ? `${(val / 100000).toFixed(1)}L`
                   : val >= 1000
-                  ? `Rs. ${(val / 1000).toFixed(0)}k`
-                  : `Rs. ${val}`
+                  ? `${(val / 1000).toFixed(0)}k`
+                  : `${val}`
               }
             />
             <Tooltip
@@ -131,7 +142,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 return null;
               }}
             />
-            <Bar dataKey="amount" radius={[8, 8, 0, 0]} maxBarSize={52}>
+            <Bar dataKey="amount" radius={[8, 8, 0, 0]} maxBarSize={48}>
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -141,22 +152,22 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
       </div>
 
       {/* Legend & Stats */}
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-center">
-        <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">Inflow</span>
-          <span className="text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-center">
+        <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">Inflow</span>
+          <span className="text-[11px] sm:text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 truncate block">
             {formatNepaliCurrency(income)}
           </span>
         </div>
-        <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">Outflow</span>
-          <span className="text-xs font-bold font-mono text-rose-600 dark:text-rose-400">
+        <div className="p-1.5 sm:p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
+          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">Outflow</span>
+          <span className="text-[11px] sm:text-xs font-bold font-mono text-rose-600 dark:text-rose-400 truncate block">
             {formatNepaliCurrency(expenses)}
           </span>
         </div>
-        <div className={`p-2 rounded-lg ${isDeficit ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-500/5 border-blue-500/10'}`}>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">{isDeficit ? 'Deficit' : 'Surplus'}</span>
-          <span className={`text-xs font-bold font-mono ${isDeficit ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'}`}>
+        <div className={`p-1.5 sm:p-2 rounded-lg ${isDeficit ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-500/5 border-blue-500/10'}`}>
+          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">{isDeficit ? 'Deficit' : 'Surplus'}</span>
+          <span className={`text-[11px] sm:text-xs font-bold font-mono ${isDeficit ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'} truncate block`}>
             {formatNepaliCurrency(savings)}
           </span>
         </div>

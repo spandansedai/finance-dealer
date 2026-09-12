@@ -1,57 +1,162 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { PortfolioAllocationChart } from '@/components/PortfolioAllocationChart';
 import { CashFlowChart } from '@/components/CashFlowChart';
-import { StockHolding } from '@/types';
+import { StockHolding, Transaction } from '@/types';
 import {
   calculateSavingsSummary,
   calculatePortfolioAnalytics,
+  calculateTotalByType,
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
+import { supabase } from '@/lib/supabase';
+import { useGuestMode } from '@/context/GuestModeContext';
 
-const DEFAULT_HOLDINGS: StockHolding[] = [
-  {
-    id: 'holding-nabil',
-    symbol: 'NABIL',
-    companyName: 'Nabil Bank Limited',
-    shares: 100,
-    averagePurchasePrice: 500,
-    currentPrice: 600,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-gbime',
-    symbol: 'GBIME',
-    companyName: 'Global IME Bank Limited',
-    shares: 200,
-    averagePurchasePrice: 220,
-    currentPrice: 245,
-    sector: 'Commercial Banks',
-  },
-  {
-    id: 'holding-hdl',
-    symbol: 'HDL',
-    companyName: 'Himalayan Distillery Limited',
-    shares: 50,
-    averagePurchasePrice: 1800,
-    currentPrice: 1650,
-    sector: 'Manufacturing',
-  },
-];
+/**
+ * Main dashboard: pulls the authenticated user's transactions and holdings from
+ * Supabase (or falls back to in-memory guest data when logged out), then runs
+ * them through the pure calculation engine in lib/calculations/finance.ts to
+ * render the metric cards, charts, and overall financial summary below.
+ */
+
+/**
+ * Normalizes a raw Supabase `holdings` row into the app's StockHolding shape.
+ * Supabase columns are snake_case (company_name, average_purchase_price, etc.)
+ * while the app's types use camelCase, and some older rows may still use the
+ * legacy units/buy_price naming — this reads whichever field is present.
+ * `row` is typed `any` because it comes directly from a dynamic Supabase query
+ * result rather than a generated/typed schema.
+ */
+const rowToHolding = (row: any): StockHolding => ({
+  id: row.id,
+  symbol: (row.symbol || '').toUpperCase(),
+  companyName: row.company_name ?? row.companyName ?? row.symbol,
+  shares: Number(row.shares ?? row.units ?? 0),
+  averagePurchasePrice: Number(
+    row.average_purchase_price ?? row.averagePurchasePrice ?? row.buy_price ?? row.buyPrice ?? 0
+  ),
+  currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
+  sector: row.sector ?? undefined,
+});
 
 export default function HomePage() {
-  // Cash Flow State
-  const [monthlyIncomeInput, setMonthlyIncomeInput] = useState<string>('80000');
-  const [monthlyExpensesInput, setMonthlyExpensesInput] = useState<string>('34200');
+  const { guestTransactions, guestHoldings } = useGuestMode();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
+  const [dbHoldings, setDbHoldings] = useState<StockHolding[]>([]);
 
-  // Stock Portfolio State
-  const [holdings, setHoldings] = useState<StockHolding[]>(DEFAULT_HOLDINGS);
+  useEffect(() => {
+    // Guards state updates after this effect's cleanup has run (e.g. the
+    // component unmounted mid-fetch), avoiding React's "set state on an
+    // unmounted component" warning/leak.
+    let isMounted = true;
 
-  const income = parseFloat(monthlyIncomeInput) || 0;
-  const expenses = parseFloat(monthlyExpensesInput) || 0;
+    // Initial load: figure out who's logged in (if anyone) and fetch their
+    // transactions/holdings from Supabase. RLS on the tables ensures each
+    // user only ever gets rows they own, so no explicit user_id filter is
+    // needed in the query itself.
+    const loadUserData = async () => {
+      setLoading(true);
+      const { data } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      const currentUserId = data.user?.id ?? null;
+      setUserId(currentUserId);
+
+      if (currentUserId) {
+        const [txRes, holdingsRes] = await Promise.all([
+          supabase
+            .from('transactions')
+            .select('id, type, amount, category, description, date'),
+          supabase
+            .from('holdings')
+            .select('*'),
+        ]);
+
+        if (isMounted) {
+          if (txRes.data) {
+            setDbTransactions(
+              txRes.data.map((row: any) => ({
+                id: row.id,
+                type: row.type,
+                amount: Number(row.amount),
+                category: row.category,
+                description: row.description,
+                date: row.date,
+              }))
+            );
+          }
+          if (holdingsRes.data) {
+            setDbHoldings(holdingsRes.data.map(rowToHolding));
+          }
+        }
+      } else {
+        setDbTransactions([]);
+        setDbHoldings([]);
+      }
+
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    loadUserData();
+
+    // Keep the dashboard in sync with auth changes that happen after the
+    // initial load — e.g. the user signs in/out in another tab, or their
+    // session refreshes — by re-fetching whenever the auth state changes.
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUserId = session?.user?.id ?? null;
+      setUserId(currentUserId);
+
+      if (currentUserId) {
+        const [txRes, holdingsRes] = await Promise.all([
+          supabase
+            .from('transactions')
+            .select('id, type, amount, category, description, date'),
+          supabase
+            .from('holdings')
+            .select('*'),
+        ]);
+
+        if (txRes.data) {
+          setDbTransactions(
+            txRes.data.map((row: any) => ({
+              id: row.id,
+              type: row.type,
+              amount: Number(row.amount),
+              category: row.category,
+              description: row.description,
+              date: row.date,
+            }))
+          );
+        }
+        if (holdingsRes.data) {
+          setDbHoldings(holdingsRes.data.map(rowToHolding));
+        }
+      } else {
+        setDbTransactions([]);
+        setDbHoldings([]);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // When authenticated, use Supabase data. When in guest mode, use in-memory guest state.
+  const activeTransactions = userId ? dbTransactions : guestTransactions;
+  const activeHoldings = userId ? dbHoldings : guestHoldings;
+
+  const totalIncome = calculateTotalByType(activeTransactions, 'income');
+  const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
 
   // Pure Math Calculations - Savings Engine
   const {
@@ -60,7 +165,7 @@ export default function HomePage() {
     monthlySavings,
     savingsRate,
     annualSavings,
-  } = calculateSavingsSummary(income, expenses);
+  } = calculateSavingsSummary(totalIncome, totalExpenses);
 
   // Pure Math Calculations - Portfolio Engine
   const {
@@ -69,33 +174,24 @@ export default function HomePage() {
     totalProfitLoss,
     totalProfitLossPercentage,
     holdings: analyzedHoldings,
-  } = calculatePortfolioAnalytics(holdings);
+  } = calculatePortfolioAnalytics(activeHoldings);
 
   const isSavingsDeficit = monthlySavings < 0;
   const isPortfolioProfit = totalProfitLoss > 0;
   const isPortfolioLoss = totalProfitLoss < 0;
 
-  // Combined Financial Position
+  // Combined Financial Position: projected annual savings (only counted if positive,
+  // since a projected deficit isn't an "asset") plus the current NEPSE portfolio value.
   const totalCombinedAssets = totalCurrentValue + Math.max(0, annualSavings);
-
-  // Quick Preset Scenarios
-  const loadScenario = (
-    inc: number,
-    exp: number,
-    presetHoldings: StockHolding[]
-  ) => {
-    setMonthlyIncomeInput(inc.toString());
-    setMonthlyExpensesInput(exp.toString());
-    setHoldings(presetHoldings);
-  };
+  const hasAnyData = activeTransactions.length > 0 || activeHoldings.length > 0;
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 Financial Dashboard
               </h1>
@@ -103,91 +199,64 @@ export default function HomePage() {
                 v0.6 Active
               </span>
             </div>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
               Unified overview of your monthly cash flow, savings rate, and NEPSE portfolio performance.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Link
               href="/expenses"
-              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs"
+              className="flex-1 sm:flex-initial text-center px-4 py-2 text-xs sm:text-sm font-medium rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-xs"
             >
               + Track Expenses
             </Link>
             <Link
               href="/portfolio"
-              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
+              className="flex-1 sm:flex-initial text-center px-4 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs"
             >
               Manage Portfolio
             </Link>
           </div>
         </div>
 
-        {/* Quick Scenario Preset Selector Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-              ⚡ Quick Scenarios:
-            </span>
-            <span className="text-xs text-zinc-400 hidden sm:inline">
-              Switch presets to test various financial states:
-            </span>
+        {loading && (
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            Loading your financial data...
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => loadScenario(80000, 34200, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-100 transition"
+        )}
+
+        {/* Guest Mode Indicator Banner */}
+        {!userId && !loading && (
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
+                Try It Out Mode
+              </span>
+              <span>
+                You are exploring Finance-Dealer in <strong>Guest Mode</strong>. Data entered is stored in memory and will reset automatically on page refresh.
+              </span>
+            </div>
+            <Link
+              href="/login"
+              className="px-3.5 py-1.5 font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition self-start sm:self-auto shrink-0 shadow-xs"
             >
-              Standard Default
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                loadScenario(50000, 20000, [
-                  {
-                    id: 'nabil-test',
-                    symbol: 'NABIL',
-                    companyName: 'Nabil Bank Limited',
-                    shares: 100,
-                    averagePurchasePrice: 500,
-                    currentPrice: 600,
-                  },
-                ])
-              }
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
-            >
-              NABIL Only (v0.5 Test)
-            </button>
-            <button
-              type="button"
-              onClick={() => loadScenario(120000, 45000, DEFAULT_HOLDINGS)}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
-            >
-              High Surplus (Rs. 120k)
-            </button>
-            <button
-              type="button"
-              onClick={() => loadScenario(0, 0, [])}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition"
-            >
-              Zero / Empty State
-            </button>
+              Sign Up / Sign In to Save
+            </Link>
           </div>
-        </div>
+        )}
 
         {/* 8 Key Metric Cards Section */}
-        <section className="space-y-4">
+        <section className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
               Key Financial Metrics
             </h2>
             <span className="text-xs font-mono text-zinc-400 dark:text-zinc-500">
-              Currency: NPR (Rs.)
+              NPR (Rs.)
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Card 1: Monthly Income */}
             <MetricCard
               label="Monthly Income"
@@ -266,7 +335,7 @@ export default function HomePage() {
               amount={totalCurrentValue}
               currency="Rs."
               type="neutral"
-              badgeText={`${holdings.length} Stocks`}
+              badgeText={`${activeHoldings.length} Stocks`}
               subtitle="Current valuation at market price"
             />
 
@@ -315,21 +384,21 @@ export default function HomePage() {
         </section>
 
         {/* Visual Charts Section (2 Charts) */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
           {/* Chart 1: Income vs Expenses vs Savings */}
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+          <div className="p-4 sm:p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 sm:pb-4">
               <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                   Cash Flow Breakdown
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                   Income vs Expenses vs Net Monthly Savings
                 </p>
               </div>
               <Link
                 href="/expenses"
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
               >
                 Log Entry →
               </Link>
@@ -342,19 +411,19 @@ export default function HomePage() {
           </div>
 
           {/* Chart 2: Portfolio Stock Allocation */}
-          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
+          <div className="p-4 sm:p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3 sm:pb-4">
               <div>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+                <h3 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                   Portfolio Allocation
                 </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-zinc-400">
                   Percentage distribution by stock valuation
                 </p>
               </div>
               <Link
                 href="/portfolio"
-                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
+                className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
               >
                 View Holdings →
               </Link>
@@ -367,10 +436,10 @@ export default function HomePage() {
         </section>
 
         {/* Overall Financial Summary Section */}
-        <section className="p-6 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-6">
+        <section className="p-4 sm:p-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                 <span>🛡️ Overall Financial Position &amp; Health</span>
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
@@ -378,17 +447,23 @@ export default function HomePage() {
               </p>
             </div>
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 self-start sm:self-auto border border-emerald-300 dark:border-emerald-800">
-              {savingsRate >= 30 ? 'Strong Financial Health' : savingsRate > 0 ? 'Moderate Health' : 'Review Spending'}
+              {!hasAnyData
+                ? 'No Data Logged'
+                : savingsRate >= 30
+                ? 'Strong Financial Health'
+                : savingsRate > 0
+                ? 'Moderate Health'
+                : 'Review Spending'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {/* Position 1: Total Assets & Capacity */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Total Asset &amp; Savings Position
               </span>
-              <div className="font-mono text-2xl font-extrabold text-zinc-900 dark:text-zinc-100">
+              <div className="font-mono text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-zinc-100 break-words">
                 {formatNepaliCurrency(totalCombinedAssets)}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -397,11 +472,11 @@ export default function HomePage() {
             </div>
 
             {/* Position 2: Monthly Surplus Velocity */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Investment Capacity
               </span>
-              <div className="font-mono text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              <div className="font-mono text-xl sm:text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 break-words">
                 {formatNepaliCurrency(Math.max(0, monthlySavings))}/mo
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
@@ -411,24 +486,24 @@ export default function HomePage() {
                   </>
                 ) : (
                   <>
-                    No monthly surplus currently available. Focus on minimizing variable expenses to unlock investment capacity.
+                    No monthly surplus recorded yet. Log your income and expenses to unlock investment capacity.
                   </>
                 )}
               </p>
             </div>
 
             {/* Position 3: Portfolio Return Status */}
-            <div className="p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-3">
+            <div className="p-4 sm:p-5 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 space-y-2 sm:space-y-3">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider block">
                 Portfolio Net Performance
               </span>
-              <div className={`font-mono text-2xl font-extrabold ${isPortfolioProfit ? 'text-emerald-600 dark:text-emerald-400' : isPortfolioLoss ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-700 dark:text-zinc-300'}`}>
+              <div className={`font-mono text-xl sm:text-2xl font-extrabold break-words ${isPortfolioProfit ? 'text-emerald-600 dark:text-emerald-400' : isPortfolioLoss ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-700 dark:text-zinc-300'}`}>
                 {isPortfolioProfit ? '+' : ''}{formatNepaliCurrency(totalProfitLoss)}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 {totalInvested > 0 ? (
                   <>
-                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {holdings.length} holdings against a cost basis of {formatNepaliCurrency(totalInvested)}.
+                    A total return of <strong>{totalProfitLossPercentage >= 0 ? '+' : ''}{totalProfitLossPercentage.toFixed(2)}%</strong> across {activeHoldings.length} {activeHoldings.length === 1 ? 'holding' : 'holdings'} against a cost basis of {formatNepaliCurrency(totalInvested)}.
                   </>
                 ) : (
                   <>
@@ -438,55 +513,20 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-
-          {/* Quick Adjustment Inputs */}
-          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">
-              Want to adjust monthly cash figures? Update the fields below for real-time recalculation:
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs">
-                <label htmlFor="quick-income" className="font-semibold text-zinc-600 dark:text-zinc-400">Income:</label>
-                <div className="relative">
-                  <input
-                    id="quick-income"
-                    type="number"
-                    value={monthlyIncomeInput}
-                    onChange={(e) => setMonthlyIncomeInput(e.target.value)}
-                    className="w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs">
-                <label htmlFor="quick-expenses" className="font-semibold text-zinc-600 dark:text-zinc-400">Expenses:</label>
-                <div className="relative">
-                  <input
-                    id="quick-expenses"
-                    type="number"
-                    value={monthlyExpensesInput}
-                    onChange={(e) => setMonthlyExpensesInput(e.target.value)}
-                    className="w-28 px-2.5 py-1.5 text-xs font-mono font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
         </section>
 
         {/* Feature Navigation Modules */}
-        <section className="space-y-4">
-          <h2 className="text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
+        <section className="space-y-3 sm:space-y-4">
+          <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
             Dedicated Modules
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             <Link
               href="/expenses"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-emerald-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition">
                   Income &amp; Expense Tracking →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 font-semibold">
@@ -500,10 +540,10 @@ export default function HomePage() {
 
             <Link
               href="/portfolio"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-purple-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-purple-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-purple-600 dark:group-hover:text-purple-400 transition">
                   NEPSE Stock Portfolio →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-400 font-semibold">
@@ -517,10 +557,10 @@ export default function HomePage() {
 
             <Link
               href="/salary"
-              className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-blue-500/50 transition group shadow-xs"
+              className="p-5 sm:p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-blue-500/50 transition group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                <h3 className="text-sm sm:text-base font-semibold group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
                   Salary &amp; Tax Management →
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 font-semibold">

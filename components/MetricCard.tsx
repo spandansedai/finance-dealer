@@ -1,5 +1,11 @@
 import React from 'react';
 
+/**
+ * Generic dashboard "stat card" used across the app for income, expenses,
+ * savings, and portfolio metrics. Accepts either a raw `amount` (which it
+ * formats itself) or a pre-formatted `formattedValue` string, and colors
+ * itself based on `type` (e.g. income = green, expense = red).
+ */
 interface MetricCardProps {
   label: string;
   amount?: number;
@@ -22,7 +28,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   subtitle,
 }) => {
   const isNegative = amount !== undefined && amount < 0;
-  
+
+  // Prefer a caller-supplied formatted string (e.g. already using formatNepaliCurrency)
+  // and only fall back to formatting the raw amount ourselves.
   const displayAmount = formattedValue !== undefined
     ? formattedValue
     : amount !== undefined
@@ -45,32 +53,34 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     neutral: 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300',
   };
 
+  // A "savings" card with a negative amount is really a deficit, so it should
+  // render with the deficit (red) styling rather than the neutral savings blue.
   const effectiveType = type === 'savings' && isNegative ? 'deficit' : type;
 
   return (
-    <div className={`p-6 rounded-2xl border ${typeStyles[effectiveType]} shadow-xs transition-all hover:shadow-md`}>
+    <div className={`p-4 sm:p-6 rounded-2xl border ${typeStyles[effectiveType]} shadow-xs transition-all hover:shadow-md`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+        <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
         {badgeText ? (
-          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeStyles[effectiveType]}`}>
+          <span className={`text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full ${badgeStyles[effectiveType]}`}>
             {badgeText}
           </span>
         ) : changePercentage !== undefined ? (
-          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${badgeStyles[effectiveType]}`}>
+          <span className={`text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full ${badgeStyles[effectiveType]}`}>
             {changePercentage > 0 ? `+${changePercentage}%` : `${changePercentage}%`}
           </span>
         ) : null}
       </div>
-      <div className="mt-4 flex items-baseline gap-2">
+      <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
         {currency && (
-          <span className="text-sm font-medium text-zinc-400 dark:text-zinc-500">{currency}</span>
+          <span className="text-xs sm:text-sm font-medium text-zinc-400 dark:text-zinc-500">{currency}</span>
         )}
-        <span className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50">
+        <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 break-words">
           {displayAmount}
         </span>
       </div>
       {subtitle && (
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+        <p className="mt-1.5 sm:mt-2 text-xs text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       )}
     </div>
   );

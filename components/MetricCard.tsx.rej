@@ -1,0 +1,33 @@
+diff a/components/MetricCard.tsx b/components/MetricCard.tsx	(rejected hunks)
+@@ -1,5 +1,11 @@
+ import React from 'react';
+ 
++/**
++ * Generic dashboard "stat card" used across the app for income, expenses,
++ * savings, and portfolio metrics. Accepts either a raw `amount` (which it
++ * formats itself) or a pre-formatted `formattedValue` string, and colors
++ * itself based on `type` (e.g. income = green, expense = red).
++ */
+ interface MetricCardProps {
+   label: string;
+   amount?: number;
+@@ -22,7 +28,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
+   subtitle,
+ }) => {
+   const isNegative = amount !== undefined && amount < 0;
+-  
++
++  // Prefer a caller-supplied formatted string (e.g. already using formatNepaliCurrency)
++  // and only fall back to formatting the raw amount ourselves.
+   const displayAmount = formattedValue !== undefined
+     ? formattedValue
+     : amount !== undefined
+@@ -45,6 +53,8 @@ export const MetricCard: React.FC<MetricCardProps> = ({
+     neutral: 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300',
+   };
+ 
++  // A "savings" card with a negative amount is really a deficit, so it should
++  // render with the deficit (red) styling rather than the neutral savings blue.
+   const effectiveType = type === 'savings' && isNegative ? 'deficit' : type;
+ 
+   return (

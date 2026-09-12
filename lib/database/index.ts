@@ -2,11 +2,22 @@
  * Supabase client and database helper interfaces (Prepared for v0.4)
  */
 
+/**
+ * Type for the two environment variables Supabase needs to connect.
+ * Optional here because the app should still boot (in a degraded state) if they're missing,
+ * rather than crashing on import.
+ */
 export interface DatabaseConfig {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
 }
 
+/**
+ * Checks whether the required Supabase environment variables are present.
+ * Used to guard Supabase-dependent features so the app can show a helpful
+ * "not configured" state instead of throwing when env vars are missing
+ * (e.g. in local dev before .env.local is set up).
+ */
 export const isDatabaseConfigured = (): boolean => {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 };

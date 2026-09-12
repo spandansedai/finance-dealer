@@ -1,0 +1,14 @@
+diff a/app/login/page.tsx b/app/login/page.tsx	(rejected hunks)
+@@ -4,6 +4,12 @@ import React, { useState } from 'react';
+ import { useRouter } from 'next/navigation';
+ import { supabase } from '@/lib/supabase';
+ 
++/**
++ * Combined sign in / sign up page (single form, toggled via `mode`).
++ * Handles Supabase auth directly: signInWithPassword for sign in, and signUp
++ * for sign up, including the case where Supabase requires email confirmation
++ * before a session exists.
++ */
+ export default function LoginPage() {
+   const router = useRouter();
+   const [mode, setMode] = useState<'signin' | 'signup'>('signin');

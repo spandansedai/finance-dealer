@@ -1,0 +1,25 @@
+diff a/app/expenses/page.tsx b/app/expenses/page.tsx	(rejected hunks)
+@@ -7,6 +7,13 @@ import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from
+ import { supabase } from '@/lib/supabase';
+ import { useGuestMode } from '@/context/GuestModeContext';
+ 
++/**
++ * Income & Expense tracking page. Authenticated users' transactions are read
++ * from and written to the Supabase `transactions` table (RLS-scoped to their
++ * own user_id); logged-out visitors instead use the in-memory guest context
++ * (see GuestModeContext) so they can try the feature without an account.
++ */
++
+ // Shape of a row as stored in the `transactions` table.
+ interface TransactionRow {
+   id: string;
+@@ -74,6 +81,9 @@ export default function ExpensesPage() {
+   const [formError, setFormError] = useState<string | null>(null);
+   const [submitting, setSubmitting] = useState(false);
+ 
++  // Fetches the current user's transactions from Supabase, newest first.
++  // Relies on RLS to scope results to the logged-in user — no explicit
++  // user_id filter is needed here.
+   const loadTransactions = async () => {
+     setLoadingTransactions(true);
+     setLoadError(null);
