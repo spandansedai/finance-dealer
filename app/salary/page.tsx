@@ -1,5 +1,15 @@
+/**
+ * @file app/salary/page.tsx
+ * @description Salary and Tax Management module.
+ * This is currently a placeholder for a planned feature that will handle 
+ * recurring salary configurations and Nepal-specific income tax calculations.
+ */
+
 import Link from 'next/link';
 
+/**
+ * Salary Page component.
+ */
 export default function SalaryPage() {
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 md:p-10">

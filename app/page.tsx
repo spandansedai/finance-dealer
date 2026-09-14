@@ -1,3 +1,11 @@
+/**
+ * @file app/page.tsx
+ * @description Central Hub / Dashboard for the Finance-Dealer application.
+ * Aggregates and visualizes key financial metrics including income, expenses, 
+ * savings rate, and NEPSE portfolio performance. Supports both authenticated 
+ * Supabase sessions and ephemeral Guest Mode state.
+ */
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -15,6 +23,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 
+/**
+ * Transforms a raw database row into a structured StockHolding object.
+ * Maps both snake_case (database) and camelCase (guest/previous versions) keys.
+ * 
+ * @param row - Raw data object from Supabase or guest state.
+ * @returns Standardized StockHolding object.
+ */
 const rowToHolding = (row: any): StockHolding => ({
   id: row.id,
   symbol: (row.symbol || '').toUpperCase(),
@@ -27,6 +42,11 @@ const rowToHolding = (row: any): StockHolding => ({
   sector: row.sector ?? undefined,
 });
 
+/**
+ * The primary Dashboard page component.
+ * Manages data fetching for transactions and holdings, identifies user auth status,
+ * and passes data to calculation engines for visualization.
+ */
 export default function HomePage() {
   const { guestTransactions, guestHoldings } = useGuestMode();
   const [userId, setUserId] = useState<string | null>(null);
@@ -34,9 +54,13 @@ export default function HomePage() {
   const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
   const [dbHoldings, setDbHoldings] = useState<StockHolding[]>([]);
 
+  // Orchestrate data loading and auth state listening
   useEffect(() => {
     let isMounted = true;
 
+    /**
+     * Loads user-specific data from Supabase if authenticated.
+     */
     const loadUserData = async () => {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
@@ -46,6 +70,7 @@ export default function HomePage() {
       const currentUserId = data.user?.id ?? null;
       setUserId(currentUserId);
 
+      // Fetch from Supabase if we have a valid session
       if (currentUserId) {
         const [txRes, holdingsRes] = await Promise.all([
           supabase
@@ -74,6 +99,7 @@ export default function HomePage() {
           }
         }
       } else {
+        // Clear DB state if user signs out
         setDbTransactions([]);
         setDbHoldings([]);
       }
@@ -85,6 +111,7 @@ export default function HomePage() {
 
     loadUserData();
 
+    // Listen for sign-in/sign-out events to re-fetch or clear data
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUserId = session?.user?.id ?? null;
       setUserId(currentUserId);

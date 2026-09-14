@@ -1,3 +1,11 @@
+/**
+ * @file app/expenses/page.tsx
+ * @description Income and Expense tracking module.
+ * Provides a ledger-style interface to log daily financial transactions, categorize 
+ * them, and calculate the resulting monthly savings surplus or deficit.
+ * Persists data to Supabase for authenticated users and ephemeral state for guests.
+ */
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -7,7 +15,9 @@ import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from 
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 
-// Shape of a row as stored in the `transactions` table.
+/**
+ * Interface representing a raw transaction record from the database.
+ */
 interface TransactionRow {
   id: string;
   type: TransactionType;
@@ -17,6 +27,12 @@ interface TransactionRow {
   date: string;
 }
 
+/**
+ * Normalizes a database row into a standard Transaction object.
+ * 
+ * @param row - Raw data object from Supabase.
+ * @returns Standardized Transaction object.
+ */
 const rowToTransaction = (row: TransactionRow): Transaction => ({
   id: row.id,
   type: row.type,
@@ -26,6 +42,9 @@ const rowToTransaction = (row: TransactionRow): Transaction => ({
   date: row.date,
 });
 
+/**
+ * Standard classification for income streams.
+ */
 const INCOME_CATEGORIES = [
   'Salary',
   'Side Hustle',
@@ -35,6 +54,9 @@ const INCOME_CATEGORIES = [
   'Other Income',
 ];
 
+/**
+ * Standard classification for monthly expense outflows.
+ */
 const EXPENSE_CATEGORIES = [
   'Rent',
   'Food & Groceries',
@@ -47,6 +69,10 @@ const EXPENSE_CATEGORIES = [
   'Other Expense',
 ];
 
+/**
+ * The Expenses & Income Page component.
+ * Manages transaction entry, list filtering, and core cash flow calculations.
+ */
 export default function ExpensesPage() {
   const {
     guestTransactions,
@@ -65,7 +91,7 @@ export default function ExpensesPage() {
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Form State
+  // Form State for new transaction entries
   const [type, setType] = useState<TransactionType>('expense');
   const [amount, setAmount] = useState<string>('');
   const [category, setCategory] = useState<string>('Rent');
@@ -74,6 +100,9 @@ export default function ExpensesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  /**
+   * Loads user transactions from the Supabase database.
+   */
   const loadTransactions = async () => {
     setLoadingTransactions(true);
     setLoadError(null);
@@ -93,7 +122,7 @@ export default function ExpensesPage() {
     setLoadingTransactions(false);
   };
 
-  // Check auth session, then load this user's transactions from Supabase.
+  // Lifecycle: Handle initial authentication check and setup listeners
   useEffect(() => {
     let isMounted = true;
 
@@ -128,7 +157,11 @@ export default function ExpensesPage() {
     };
   }, []);
 
-  // Switch category list when type changes
+  /**
+   * Updates the selected transaction type and resets category to the first default.
+   * 
+   * @param newType - 'income' or 'expense'
+   */
   const handleTypeChange = (newType: TransactionType) => {
     setType(newType);
     if (newType === 'income') {
@@ -138,6 +171,12 @@ export default function ExpensesPage() {
     }
   };
 
+  /**
+   * Handles submission of the transaction entry form.
+   * Persists to Supabase (Auth) or RAM (Guest).
+   * 
+   * @param e - Form event.
+   */
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -155,7 +194,7 @@ export default function ExpensesPage() {
 
     const txDate = date || new Date().toISOString().split('T')[0];
 
-    // Branch: Authenticated vs Guest
+    // Branch logic: Persist based on authentication status
     if (userId) {
       setSubmitting(true);
       const { data, error } = await supabase
@@ -180,7 +219,7 @@ export default function ExpensesPage() {
 
       setDbTransactions((prev) => [rowToTransaction(data), ...prev]);
     } else {
-      // Guest mode: save to in-memory React context
+      // Guest mode: save to in-memory context memory
       addGuestTransaction({
         type,
         amount: parsedAmount,
@@ -190,12 +229,17 @@ export default function ExpensesPage() {
       });
     }
 
-    // Reset Form
+    // Reset Form fields on success
     setAmount('');
     setDescription('');
     setFormError(null);
   };
 
+  /**
+   * Removes a transaction record.
+   * 
+   * @param id - The transaction identifier.
+   */
   const handleDeleteTransaction = async (id: string) => {
     if (userId) {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
@@ -207,7 +251,6 @@ export default function ExpensesPage() {
 
       setDbTransactions((prev) => prev.filter((item) => item.id !== id));
     } else {
-      // Guest mode delete
       deleteGuestTransaction(id);
     }
   };
@@ -223,20 +266,25 @@ export default function ExpensesPage() {
 
       setDbTransactions([]);
     } else {
-      // Guest mode clear
       clearGuestTransactions();
     }
   };
 
-  // Active transaction set (DB if logged in, in-memory if guest)
+  // Select active dataset based on login status
   const activeTransactions = userId ? dbTransactions : guestTransactions;
 
-  // Calculations
+  // Derive cash flow aggregates using calculation engine
   const totalIncome = calculateTotalByType(activeTransactions, 'income');
   const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
   const netSurplus = calculateNetSavings(totalIncome, totalExpenses);
   const savingsRate = calculateSavingsRate(totalIncome, totalExpenses);
 
+  /**
+   * Formats numbers into Nepali Rupees display format.
+   * 
+   * @param val - Numeric value.
+   * @returns Formatted string.
+   */
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('en-NP', {
       maximumFractionDigits: 2,

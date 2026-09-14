@@ -1,3 +1,10 @@
+/**
+ * @file lib/calculations/finance.ts
+ * @description Pure calculation engine for Nepali Personal Finance & NEPSE OS.
+ * Contains stateless mathematical utilities for computing monthly savings, savings rates,
+ * portfolio valuation, cost basis, profit/loss metrics, and aggregate financial summaries.
+ */
+
 import {
   HoldingAnalytics,
   OverallFinancialSummary,
@@ -8,12 +15,14 @@ import {
   TransactionType,
 } from '@/types';
 
-/**
- * Pure calculation engine for Nepali Personal Finance & NEPSE OS
- */
+/* ==========================================================================\n   Cash Flow & Savings Calculations\n   ========================================================================== */
 
 /**
- * Calculates monthly savings: monthlyIncome - monthlyExpenses
+ * Calculates monthly net savings (surplus or deficit).
+ *
+ * @param monthlyIncome - Total income inflows in NPR for the month.
+ * @param monthlyExpenses - Total expense outflows in NPR for the month.
+ * @returns Net savings surplus (positive) or deficit (negative) in NPR.
  */
 export function calculateMonthlySavings(monthlyIncome: number, monthlyExpenses: number): number {
   const income = Number(monthlyIncome) || 0;
@@ -22,17 +31,26 @@ export function calculateMonthlySavings(monthlyIncome: number, monthlyExpenses: 
 }
 
 /**
- * Alias for calculateMonthlySavings for backwards compatibility
+ * Alias for calculateMonthlySavings provided for backwards compatibility.
+ *
+ * @param totalIncome - Total income inflows in NPR.
+ * @param totalExpenses - Total expense outflows in NPR.
+ * @returns Net savings in NPR.
  */
 export function calculateNetSavings(totalIncome: number, totalExpenses: number): number {
   return calculateMonthlySavings(totalIncome, totalExpenses);
 }
 
 /**
- * Calculates savings rate percentage: (monthlySavings / monthlyIncome) * 100
- * Handles edge cases:
- * - If monthlyIncome <= 0, returns 0 to prevent NaN or Infinity.
+ * Calculates the savings rate percentage: (monthlySavings / monthlyIncome) * 100.
+ *
+ * Edge cases handled:
+ * - If monthlyIncome <= 0, returns 0 to prevent division by zero, NaN, or Infinity.
  * - Negative savings return negative savings rate percentage rounded to 2 decimal places.
+ *
+ * @param monthlyIncome - Total monthly income in NPR.
+ * @param monthlyExpenses - Total monthly expenses in NPR.
+ * @returns Savings rate as a percentage rounded to 2 decimal places (e.g., 25.5 for 25.5%).
  */
 export function calculateSavingsRate(monthlyIncome: number, monthlyExpenses: number): number {
   const income = Number(monthlyIncome) || 0;
@@ -48,7 +66,10 @@ export function calculateSavingsRate(monthlyIncome: number, monthlyExpenses: num
 }
 
 /**
- * Calculates projected annual savings: monthlySavings * 12
+ * Projects annual savings capacity assuming current monthly savings rate continues for 12 months.
+ *
+ * @param monthlySavings - Monthly net savings in NPR.
+ * @returns Projected annual savings in NPR (monthlySavings * 12).
  */
 export function calculateAnnualSavings(monthlySavings: number): number {
   const savings = Number(monthlySavings) || 0;
@@ -56,7 +77,11 @@ export function calculateAnnualSavings(monthlySavings: number): number {
 }
 
 /**
- * Calculates all savings metrics in one summary object
+ * Calculates a consolidated savings breakdown summary object.
+ *
+ * @param monthlyIncome - Total monthly income in NPR.
+ * @param monthlyExpenses - Total monthly expenses in NPR.
+ * @returns A structured SavingsSummary containing income, expenses, net savings, savings rate, and annual savings.
  */
 export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: number): SavingsSummary {
   const income = Number(monthlyIncome) || 0;
@@ -75,7 +100,11 @@ export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: 
 }
 
 /**
- * Currency formatting helper for Nepali Rupees (NPR)
+ * Formats a numerical amount into Nepali Rupees (NPR) string using standard South Asian numbering convention.
+ *
+ * @param amount - The numeric monetary value to format.
+ * @param prefix - Currency symbol/prefix to prepend (default: 'Rs. ').
+ * @returns Formatted currency string (e.g. "Rs. 1,50,000" or "-Rs. 25,000").
  */
 export function formatNepaliCurrency(amount: number, prefix: string = 'Rs. '): string {
   const num = Number(amount) || 0;
@@ -91,12 +120,26 @@ export function formatNepaliCurrency(amount: number, prefix: string = 'Rs. '): s
   return `${prefix}${absFormatted}`;
 }
 
+/**
+ * Sums up transaction amounts matching a given transaction type ('income' or 'expense').
+ *
+ * @param transactions - List of transaction records.
+ * @param type - Classification filter ('income' or 'expense').
+ * @returns Total aggregate sum in NPR.
+ */
 export function calculateTotalByType(transactions: Transaction[], type: TransactionType): number {
   return transactions
     .filter((t) => t.type === type)
     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
 }
 
+/**
+ * Groups and sums transactions by category for a specific transaction type.
+ *
+ * @param transactions - List of transaction records.
+ * @param type - Classification filter ('income' or 'expense').
+ * @returns Map of category name to total spent/received in NPR.
+ */
 export function calculateCategoryBreakdown(
   transactions: Transaction[],
   type: TransactionType
@@ -109,12 +152,15 @@ export function calculateCategoryBreakdown(
     }, {} as Record<string, number>);
 }
 
-/* ==========================================================================
-   V0.5: Portfolio Analytics Pure Calculation Engine
-   ========================================================================== */
+/* ==========================================================================\n   Portfolio Analytics Pure Calculation Engine\n   ========================================================================== */
 
 /**
- * Calculates invested amount for a holding: shares × average purchase price
+ * Calculates the total cost basis for a stock position: shares * average purchase price.
+ * Clamps negative inputs to 0.
+ *
+ * @param shares - Number of shares owned.
+ * @param averagePurchasePrice - Average purchase price per share in NPR.
+ * @returns Total invested capital in NPR.
  */
 export function calculateHoldingInvested(shares: number, averagePurchasePrice: number): number {
   const s = Math.max(0, Number(shares) || 0);
@@ -123,7 +169,12 @@ export function calculateHoldingInvested(shares: number, averagePurchasePrice: n
 }
 
 /**
- * Calculates current value for a holding: shares × current price
+ * Calculates current market valuation for a stock position: shares * current market price.
+ * Clamps negative inputs to 0.
+ *
+ * @param shares - Number of shares owned.
+ * @param currentPrice - Current market price per share in NPR.
+ * @returns Total current valuation in NPR.
  */
 export function calculateHoldingCurrentValue(shares: number, currentPrice: number): number {
   const s = Math.max(0, Number(shares) || 0);
@@ -132,7 +183,11 @@ export function calculateHoldingCurrentValue(shares: number, currentPrice: numbe
 }
 
 /**
- * Calculates profit/loss amount: current value - invested amount
+ * Calculates unrealized profit or loss for a stock position: currentValue - investedAmount.
+ *
+ * @param currentValue - Current valuation in NPR.
+ * @param investedAmount - Total invested capital in NPR.
+ * @returns Net profit (positive) or loss (negative) in NPR.
  */
 export function calculateHoldingProfitLoss(currentValue: number, investedAmount: number): number {
   const cv = Number(currentValue) || 0;
@@ -141,8 +196,12 @@ export function calculateHoldingProfitLoss(currentValue: number, investedAmount:
 }
 
 /**
- * Calculates profit/loss percentage: (profit/loss ÷ invested amount) × 100
- * Handles zero and negative edge cases safely to avoid NaN / Infinity.
+ * Calculates unrealized return percentage: (profitLoss / investedAmount) * 100.
+ * Handles zero and negative invested amounts safely to avoid NaN / Infinity.
+ *
+ * @param profitLoss - Net profit or loss in NPR.
+ * @param investedAmount - Total invested capital in NPR.
+ * @returns Return percentage rounded to 2 decimal places.
  */
 export function calculateHoldingProfitLossPercentage(profitLoss: number, investedAmount: number): number {
   const pl = Number(profitLoss) || 0;
@@ -157,8 +216,12 @@ export function calculateHoldingProfitLossPercentage(profitLoss: number, investe
 }
 
 /**
- * Calculates holding percentage of current portfolio value: (current value ÷ total portfolio value) × 100
- * Handles zero portfolio value safely to avoid NaN / Infinity.
+ * Calculates the proportion of a single holding relative to the total portfolio value:
+ * (holdingCurrentValue / totalPortfolioValue) * 100.
+ *
+ * @param holdingCurrentValue - Current market value of the single holding.
+ * @param totalPortfolioValue - Aggregate current market value of all holdings.
+ * @returns Portfolio allocation weight percentage rounded to 2 decimal places.
  */
 export function calculateHoldingWeightPercentage(holdingCurrentValue: number, totalPortfolioValue: number): number {
   const hcv = Math.max(0, Number(holdingCurrentValue) || 0);
@@ -173,7 +236,11 @@ export function calculateHoldingWeightPercentage(holdingCurrentValue: number, to
 }
 
 /**
- * Calculates complete analytics for a single stock holding
+ * Derives comprehensive financial analytics for a single stock holding position.
+ *
+ * @param holding - Stock holding record.
+ * @param totalPortfolioValue - Optional total portfolio value for weight % calculation.
+ * @returns HoldingAnalytics object with invested capital, valuation, P/L, return %, and weight.
  */
 export function calculateHoldingAnalytics(
   holding: StockHolding,
@@ -206,12 +273,17 @@ export function calculateHoldingAnalytics(
 }
 
 /**
- * Calculates aggregated portfolio analytics summary
+ * Computes aggregated portfolio analytics across all stock holdings.
+ * Calculates total cost basis, current portfolio valuation, overall unrealized profit/loss,
+ * total return percentage, and individual position weight allocations.
+ *
+ * @param holdings - Array of raw or stored stock holdings.
+ * @returns PortfolioAnalyticsSummary with portfolio-wide totals and enriched individual holding analytics.
  */
 export function calculatePortfolioAnalytics(holdings: StockHolding[]): PortfolioAnalyticsSummary {
   const rawList = Array.isArray(holdings) ? holdings : [];
 
-  // Step 1: Calculate total invested and total current value
+  // Step 1: Calculate total invested capital and total current valuation across all positions
   let totalInvested = 0;
   let totalCurrentValue = 0;
 
@@ -245,7 +317,7 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
         : 0
       : 0;
 
-  // Step 2: Compute individual holding analytics with portfolio weights
+  // Step 2: Compute individual holding analytics with portfolio allocation weights
   const analyzedHoldings: HoldingAnalytics[] = intermediateList.map((item) => {
     const pl = calculateHoldingProfitLoss(item.currVal, item.invested);
     const plPercentage = calculateHoldingProfitLossPercentage(pl, item.invested);
@@ -276,12 +348,15 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
   };
 }
 
-/* ==========================================================================
-   V0.6: Overall Financial Summary Pure Engine
-   ========================================================================== */
+/* ==========================================================================\n   Cross-Domain Overall Financial Position Engine\n   ========================================================================== */
 
 /**
- * Calculates complete cross-domain financial summary
+ * Combines cash flow metrics and stock portfolio analytics into a holistic financial position.
+ *
+ * @param monthlyIncome - Total monthly income in NPR.
+ * @param monthlyExpenses - Total monthly expenses in NPR.
+ * @param holdings - Array of stock holdings.
+ * @returns An OverallFinancialSummary combining liquid savings rate, portfolio value, and aggregate assets.
  */
 export function calculateOverallFinancialSummary(
   monthlyIncome: number,
@@ -301,13 +376,24 @@ export function calculateOverallFinancialSummary(
   };
 }
 
+/* ==========================================================================\n   Backwards Compatibility Helpers\n   ========================================================================== */
+
 /**
- * Backwards compatibility aliases
+ * Calculates aggregate portfolio valuation (legacy helper).
+ *
+ * @param holdings - Array of units and currentPrice objects.
+ * @returns Total portfolio market value in NPR.
  */
 export function calculatePortfolioValue(holdings: Array<{ units: number; currentPrice: number }>): number {
   return holdings.reduce((sum, h) => sum + (Number(h.units) || 0) * (Number(h.currentPrice) || 0), 0);
 }
 
+/**
+ * Calculates aggregate portfolio profit and loss (legacy helper).
+ *
+ * @param holdings - Array of units, buyPrice, and currentPrice objects.
+ * @returns Summary containing total investment, current value, and gain/loss figures.
+ */
 export function calculatePortfolioGainLoss(
   holdings: Array<{ units: number; buyPrice: number; currentPrice: number }>
 ): { totalInvestment: number; currentValue: number; gainLoss: number; gainLossPercentage: number } {

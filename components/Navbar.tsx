@@ -1,3 +1,10 @@
+/**
+ * @file components/Navbar.tsx
+ * @description Global application navigation header.
+ * Displays brand identity, responsive desktop/mobile route links, active route indicators,
+ * and live Supabase auth state (authenticated user email, sign in link, sign out action).
+ */
+
 'use client';
 
 import Link from 'next/link';
@@ -5,11 +12,16 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+/**
+ * Navbar component providing sticky top navigation, live authentication status,
+ * and responsive mobile quick links.
+ */
 export const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
+  // Subscribe to Supabase auth state changes to dynamically update navbar email / auth buttons
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserEmail(data.user?.email ?? null));
 
@@ -20,6 +32,9 @@ export const Navbar = () => {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  /**
+   * Signs the current user out of Supabase and redirects to the login screen.
+   */
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/login');

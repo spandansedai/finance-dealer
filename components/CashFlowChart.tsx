@@ -1,3 +1,9 @@
+/**
+ * @file components/CashFlowChart.tsx
+ * @description Responsive Recharts bar chart visualizing monthly cash inflows, outflows,
+ * and net surplus / deficit with South Asian currency tooltips and custom color theming.
+ */
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,17 +19,28 @@ import {
 } from 'recharts';
 import { formatNepaliCurrency } from '@/lib/calculations/finance';
 
+/**
+ * Props for CashFlowChart component.
+ */
 interface CashFlowChartProps {
+  /** Monthly total income inflows in NPR */
   income: number;
+  /** Monthly total expense outflows in NPR */
   expenses: number;
+  /** Net monthly savings (Income - Expenses) in NPR */
   savings: number;
 }
 
+/**
+ * CashFlowChart renders a grouped comparison of income, expenses, and savings/deficit.
+ * Includes client-side mount guards to prevent SSR hydration mismatches with Recharts SVG rendering.
+ */
 export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   income,
   expenses,
   savings,
 }) => {
+  // Prevent SSR hydration mismatch with Recharts dynamic canvas/SVG
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -32,6 +49,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   const isDeficit = savings < 0;
 
+  // Transform data points into Recharts bar dataset
   const data = [
     {
       category: 'Income',
@@ -55,6 +73,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   const isEmpty = income === 0 && expenses === 0 && savings === 0;
 
+  // Placeholder while mounting on client
   if (!isMounted) {
     return (
       <div className="h-56 sm:h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
@@ -63,6 +82,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
     );
   }
 
+  // Empty state when no income/expense records exist
   if (isEmpty) {
     return (
       <div className="h-56 sm:h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">

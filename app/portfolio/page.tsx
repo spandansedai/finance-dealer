@@ -1,3 +1,11 @@
+/**
+ * @file app/portfolio/page.tsx
+ * @description NEPSE Stock Portfolio management page.
+ * Allows users to track equity holdings, update current market prices, and view 
+ * granular analytics (cost basis, valuation, P/L, portfolio weight).
+ * Supports persistent Supabase storage for logged-in users and ephemeral Guest Mode.
+ */
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -11,6 +19,13 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 
+/**
+ * Normalizes database and state objects into a standard StockHolding interface.
+ * Handles variations in property naming between Supabase (snake_case) and local state.
+ * 
+ * @param row - Raw data object.
+ * @returns Standardized StockHolding object.
+ */
 const rowToHolding = (row: any): StockHolding => ({
   id: row.id,
   symbol: (row.symbol || '').toUpperCase(),
@@ -23,6 +38,11 @@ const rowToHolding = (row: any): StockHolding => ({
   sector: row.sector ?? undefined,
 });
 
+/**
+ * The Portfolio Page component.
+ * Manages CRUD operations for stock holdings and provides real-time analytics 
+ * updates as users modify their positions.
+ */
 export default function PortfolioPage() {
   const {
     guestHoldings,
@@ -41,7 +61,7 @@ export default function PortfolioPage() {
   const [loadingHoldings, setLoadingHoldings] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Form State
+  // Form State for adding new positions
   const [symbol, setSymbol] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
   const [shares, setShares] = useState<string>('');
@@ -50,10 +70,13 @@ export default function PortfolioPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Inline Current Price Editing State
+  // Inline Current Price Editing State (temporary inputs for quick updates)
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [tempPriceInput, setTempPriceInput] = useState<string>('');
 
+  /**
+   * Fetches the user's saved holdings from Supabase.
+   */
   const loadHoldings = async () => {
     setLoadingHoldings(true);
     setLoadError(null);
@@ -72,7 +95,7 @@ export default function PortfolioPage() {
     setLoadingHoldings(false);
   };
 
-  // Check auth session, then load this user's holdings from Supabase.
+  // Lifecycle: Handle initial authentication check and set up auth change listeners
   useEffect(() => {
     let isMounted = true;
 
@@ -107,10 +130,10 @@ export default function PortfolioPage() {
     };
   }, []);
 
-  // Active holdings set (Supabase if authenticated, in-memory if guest)
+  // Determine active dataset based on auth state (Supabase vs Ephemeral Guest Memory)
   const activeHoldings = userId ? dbHoldings : guestHoldings;
 
-  // Run pure calculations
+  // Run portfolio analytics engine to derive P/L, valuation, and weights
   const portfolioSummary = calculatePortfolioAnalytics(activeHoldings);
   const {
     totalInvested,
@@ -123,7 +146,12 @@ export default function PortfolioPage() {
   const isOverallProfit = totalProfitLoss > 0;
   const isOverallLoss = totalProfitLoss < 0;
 
-  // Add new holding handler
+  /**
+   * Handles submission of the "Add Stock Holding" form.
+   * Performs validation and persists to Supabase (Auth) or RAM (Guest).
+   * 
+   * @param e - Form event.
+   */
   const handleAddHolding = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -179,7 +207,7 @@ export default function PortfolioPage() {
 
       setDbHoldings((prev) => [rowToHolding(data), ...prev]);
     } else {
-      // Guest mode
+      // Guest mode: Save to context memory
       addGuestHolding({
         symbol: cleanSymbol,
         companyName: finalCompanyName,
@@ -189,7 +217,7 @@ export default function PortfolioPage() {
       });
     }
 
-    // Reset Form
+    // Reset Form fields on success
     setSymbol('');
     setCompanyName('');
     setShares('');
@@ -198,7 +226,11 @@ export default function PortfolioPage() {
     setFormError(null);
   };
 
-  // Delete Holding
+  /**
+   * Removes a position from the portfolio.
+   * 
+   * @param id - The holding identifier.
+   */
   const handleDeleteHolding = async (id?: string) => {
     if (!id) return;
 
@@ -216,13 +248,19 @@ export default function PortfolioPage() {
     }
   };
 
-  // Start inline price edit
+  /**
+   * Activates inline editing for a stock's current market price.
+   */
   const handleStartPriceEdit = (id: string, currentVal: number) => {
     setEditingPriceId(id);
     setTempPriceInput(currentVal.toString());
   };
 
-  // Save inline price edit
+  /**
+   * Persists an inline price update.
+   * 
+   * @param id - The holding identifier.
+   */
   const handleSavePriceEdit = async (id: string) => {
     const parsed = parseFloat(tempPriceInput);
     if (!isNaN(parsed) && parsed >= 0) {
@@ -248,7 +286,9 @@ export default function PortfolioPage() {
     setTempPriceInput('');
   };
 
-  // Cancel inline price edit
+  /**
+   * Discards inline price edit changes.
+   */
   const handleCancelPriceEdit = () => {
     setEditingPriceId(null);
     setTempPriceInput('');

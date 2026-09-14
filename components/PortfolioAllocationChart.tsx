@@ -1,3 +1,10 @@
+/**
+ * @file components/PortfolioAllocationChart.tsx
+ * @description Interactive pie chart visualization for stock portfolio weight allocation.
+ * Uses Recharts to display how individual stock holdings contribute to the total 
+ * portfolio market value in percentage terms.
+ */
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,11 +18,19 @@ import {
 import { HoldingAnalytics } from '@/types';
 import { formatNepaliCurrency } from '@/lib/calculations/finance';
 
+/**
+ * Component properties for PortfolioAllocationChart.
+ */
 interface PortfolioAllocationChartProps {
+  /** Enriched stock holdings data including portfolio weight calculations */
   holdings: HoldingAnalytics[];
+  /** Total current market value of all stock holdings in the portfolio */
   totalCurrentValue: number;
 }
 
+/**
+ * Aesthetic color palette used for distinct segments in the pie chart.
+ */
 const ALLOCATION_COLORS = [
   '#10b981', // emerald-500
   '#6366f1', // indigo-500
@@ -27,19 +42,30 @@ const ALLOCATION_COLORS = [
   '#3b82f6', // blue-500
 ];
 
+/**
+ * Renders a doughnut/pie chart showing the percentage distribution of stock holdings.
+ * 
+ * @param props - PortfolioAllocationChartProps
+ * @returns A visual breakdown of portfolio diversification.
+ */
 export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> = ({
   holdings,
   totalCurrentValue,
 }) => {
+  // Hydration safety: charts only render after client-side mounting to avoid mismatch with SSR
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Filter out zero-value holdings to ensure meaningful visualization
   const validHoldings = holdings.filter((h) => h.currentValue > 0);
   const isEmpty = validHoldings.length === 0 || totalCurrentValue <= 0;
 
+  /**
+   * Transforms raw holding analytics into a format compatible with Recharts Pie.
+   */
   const chartData = validHoldings.map((h, idx) => ({
     name: h.symbol,
     fullName: h.companyName,
