@@ -1,0 +1,12 @@
+diff a/app/salary/page.tsx b/app/salary/page.tsx	(rejected hunks)
+@@ -1,5 +1,10 @@
+ import Link from 'next/link';
+ 
++/**
++ * Placeholder page for the Salary & Tax Management module (see ARCHITECTURE.md
++ * for the planned salary/tax-bracket feature). No data is read or written
++ * here yet — this is intentionally a static "coming soon" page.
++ */
+ export default function SalaryPage() {
+   return (
+     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-6 md:p-10">

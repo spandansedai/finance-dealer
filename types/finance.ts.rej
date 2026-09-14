@@ -1,0 +1,35 @@
+diff a/types/finance.ts b/types/finance.ts	(rejected hunks)
+@@ -1,3 +1,9 @@
++/**
++ * Core domain types for the finance app: transactions (income/expense),
++ * NEPSE stock holdings, and the calculated summaries derived from them.
++ * Calculation logic that consumes these types lives in lib/calculations/finance.ts.
++ */
++
+ export interface FinancialMetric {
+   label: string;
+   amount: number;
+@@ -62,6 +68,13 @@ export interface ExpenseItem {
+   date: string;
+ }
+ 
++/**
++ * A single stock position the user holds on NEPSE.
++ * `units`/`buyPrice` are older field names kept for backwards compatibility with
++ * earlier data shapes; new code should read/write `shares`/`averagePurchasePrice`
++ * instead (see calculateHoldingAnalytics, which falls back to the legacy fields
++ * when the newer ones aren't present).
++ */
+ export interface StockHolding {
+   id?: string;
+   symbol: string;
+@@ -70,7 +83,9 @@ export interface StockHolding {
+   averagePurchasePrice: number;
+   currentPrice: number;
+   sector?: string;
++  /** @deprecated legacy alias for `shares` */
+   units?: number;
++  /** @deprecated legacy alias for `averagePurchasePrice` */
+   buyPrice?: number;
+ }
+ 

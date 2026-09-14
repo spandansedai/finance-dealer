@@ -1,0 +1,35 @@
+diff a/lib/calculations/finance.ts b/lib/calculations/finance.ts	(rejected hunks)
+@@ -91,12 +91,20 @@ export function formatNepaliCurrency(amount: number, prefix: string = 'Rs. '): s
+   return `${prefix}${absFormatted}`;
+ }
+ 
++/**
++ * Sums the amount of every transaction matching a given type (income or expense).
++ * Used to compute totals like "total income this month" or "total expenses this month".
++ */
+ export function calculateTotalByType(transactions: Transaction[], type: TransactionType): number {
+   return transactions
+     .filter((t) => t.type === type)
+     .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+ }
+ 
++/**
++ * Groups transactions of a given type by category and sums the amount per category.
++ * Powers the category breakdown views (e.g. how much was spent on "Food" vs "Rent").
++ */
+ export function calculateCategoryBreakdown(
+   transactions: Transaction[],
+   type: TransactionType
+@@ -302,7 +310,11 @@ export function calculateOverallFinancialSummary(
+ }
+ 
+ /**
+- * Backwards compatibility aliases
++ * Backwards compatibility aliases.
++ * These duplicate the logic in calculatePortfolioAnalytics using a simpler input shape
++ * (plain { units, buyPrice, currentPrice } objects instead of the full StockHolding type).
++ * Kept around so older code/tests that call them directly don't break; new code should
++ * prefer calculateHoldingAnalytics / calculatePortfolioAnalytics above.
+  */
+ export function calculatePortfolioValue(holdings: Array<{ units: number; currentPrice: number }>): number {
+   return holdings.reduce((sum, h) => sum + (Number(h.units) || 0) * (Number(h.currentPrice) || 0), 0);
