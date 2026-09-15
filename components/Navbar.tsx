@@ -46,6 +46,7 @@ export const Navbar = () => {
     { href: '/expenses', label: 'Expenses & Income' },
     { href: '/salary', label: 'Salary' },
     { href: '/portfolio', label: 'NEPSE Portfolio' },
+    { href: '/settings', label: 'Settings' },
   ];
 
   return (
@@ -116,6 +117,14 @@ export const Navbar = () => {
             }`}
           >
             Portfolio
+          </Link>
+          <Link
+            href="/settings"
+            className={`px-2 py-1 rounded-md ${
+              pathname.startsWith('/settings') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+            }`}
+          >
+            Settings
           </Link>
           {userEmail ? (
             <button

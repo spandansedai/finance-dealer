@@ -211,3 +211,49 @@ export interface OverallFinancialSummary {
   /** Combined net position: active equity valuation + projected annual savings */
   totalLiquidAndAssets: number;
 }
+
+/**
+ * Recurring frequency interval for financial summary email dispatches.
+ */
+export type EmailFrequency = 'weekly' | 'monthly';
+
+/**
+ * User preference configuration for automated financial summary emails.
+ */
+export interface UserEmailPreferences {
+  /** UUID of the user in Supabase auth */
+  userId: string;
+  /** Destination email address */
+  email: string;
+  /** Whether recurring summary emails are enabled */
+  enabled: boolean;
+  /** Frequency interval (weekly or monthly) */
+  frequency: EmailFrequency;
+  /** Timestamp when the last summary report was dispatched */
+  lastSentAt?: string | null;
+  /** Creation timestamp */
+  createdAt?: string;
+  /** Last modification timestamp */
+  updatedAt?: string;
+}
+
+/**
+ * Structured dataset passed to the email generator for rendering financial summaries.
+ */
+export interface SummaryEmailReportData {
+  userEmail: string;
+  frequency: EmailFrequency;
+  reportDate: string;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  netSavings: number;
+  savingsRate: number;
+  totalInvested: number;
+  totalPortfolioValue: number;
+  totalProfitLoss: number;
+  totalProfitLossPercentage: number;
+  holdings: HoldingAnalytics[];
+  topExpenseCategories: Array<{ category: string; amount: number; percentage: number }>;
+  hasActivity: boolean;
+  appUrl: string;
+}
