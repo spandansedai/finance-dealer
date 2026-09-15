@@ -1,27 +1,50 @@
 /**
- * Core domain types for the finance app: transactions (income/expense),
- * NEPSE stock holdings, and the calculated summaries derived from them.
- * Calculation logic that consumes these types lives in lib/calculations/finance.ts.
+ * @file types/finance.ts
+ * @description Core TypeScript type definitions and interfaces for Finance-Dealer.
+ * Defines models for cash flow transactions, income/expense categories, NEPSE stock holdings,
+ * portfolio analytics, and holistic financial summary metrics.
  */
 
+/**
+ * Represents a single key performance indicator (KPI) metric displayed on dashboard cards.
+ */
 export interface FinancialMetric {
+  /** Display label for the metric (e.g., "Monthly Income") */
   label: string;
+  /** Numerical value of the metric */
   amount: number;
+  /** Currency symbol or prefix (default: "Rs.") */
   currency: string;
+  /** Optional percentage change compared to a previous period */
   changePercentage?: number;
+  /** Visual direction indicator for trends */
   trend?: 'up' | 'down' | 'neutral';
 }
 
+/**
+ * Summary breakdown of monthly and projected annual savings metrics.
+ */
 export interface SavingsSummary {
+  /** Total monthly income inflows */
   monthlyIncome: number;
+  /** Total monthly expense outflows */
   monthlyExpenses: number;
+  /** Net monthly savings surplus or deficit (Income - Expenses) */
   monthlySavings: number;
+  /** Percentage of income saved ((Savings / Income) * 100) */
   savingsRate: number;
+  /** Projected annual savings capacity (Monthly Savings * 12) */
   annualSavings: number;
 }
 
+/**
+ * Cash flow movement direction.
+ */
 export type TransactionType = 'income' | 'expense';
 
+/**
+ * Standard income classification categories.
+ */
 export type IncomeCategory =
   | 'Salary'
   | 'Side Hustle'
@@ -30,6 +53,9 @@ export type IncomeCategory =
   | 'Freelance'
   | 'Other Income';
 
+/**
+ * Standard expense classification categories.
+ */
 export type ExpenseCategory =
   | 'Rent'
   | 'Food & Groceries'
@@ -41,17 +67,32 @@ export type ExpenseCategory =
   | 'Education'
   | 'Other Expense';
 
+/**
+ * Union of all predefined and custom transaction categories.
+ */
 export type TransactionCategory = IncomeCategory | ExpenseCategory | string;
 
+/**
+ * Represents an individual cash flow transaction record.
+ */
 export interface Transaction {
+  /** Unique transaction identifier (UUID from Supabase or memory ID in guest mode) */
   id: string;
+  /** Transaction classification type */
   type: TransactionType;
+  /** Monetary value in NPR */
   amount: number;
+  /** Category assigned to this entry */
   category: TransactionCategory;
+  /** Human-readable note or description */
   description: string;
+  /** ISO date string (YYYY-MM-DD) */
   date: string;
 }
 
+/**
+ * Standalone income item structure (used for granular salary/income streams).
+ */
 export interface IncomeItem {
   id: string;
   source: string;
@@ -60,6 +101,9 @@ export interface IncomeItem {
   category?: string;
 }
 
+/**
+ * Standalone expense item structure.
+ */
 export interface ExpenseItem {
   id: string;
   title: string;
@@ -69,62 +113,101 @@ export interface ExpenseItem {
 }
 
 /**
- * A single stock position the user holds on NEPSE.
- * `units`/`buyPrice` are older field names kept for backwards compatibility with
- * earlier data shapes; new code should read/write `shares`/`averagePurchasePrice`
- * instead (see calculateHoldingAnalytics, which falls back to the legacy fields
- * when the newer ones aren't present).
+ * Base data model for an equity holding in the Nepal Stock Exchange (NEPSE).
  */
 export interface StockHolding {
+  /** Optional record ID (UUID in Supabase or guest ID) */
   id?: string;
+  /** NEPSE stock ticker symbol in uppercase (e.g., "NABIL", "HDL") */
   symbol: string;
+  /** Full official corporate entity name */
   companyName: string;
+  /** Quantity of shares held */
   shares: number;
+  /** Weighted average purchase cost per share in NPR */
   averagePurchasePrice: number;
+  /** Latest recorded market trading price per share in NPR */
   currentPrice: number;
+  /** Market sector classification (e.g., Commercial Banks, Hydropower) */
   sector?: string;
-  /** @deprecated legacy alias for `shares` */
+  /** Alias for shares (legacy backwards compatibility) */
   units?: number;
-  /** @deprecated legacy alias for `averagePurchasePrice` */
+  /** Alias for averagePurchasePrice (legacy backwards compatibility) */
   buyPrice?: number;
   isLivePrice?: boolean;
   savedPrice?: number;
 }
 
+/**
+ * Derived analytics for an individual stock position including gain/loss and weight.
+ */
 export interface HoldingAnalytics {
+  /** Unique position identifier */
   id: string;
+  /** NEPSE stock ticker symbol */
   symbol: string;
+  /** Full corporate entity name */
   companyName: string;
+  /** Total number of shares owned */
   shares: number;
+  /** Cost basis per share in NPR */
   averagePurchasePrice: number;
+  /** Current market price per share in NPR */
   currentPrice: number;
+  /** Total capital invested (Shares * Avg Purchase Price) */
   investedAmount: number;
+  /** Current valuation at market price (Shares * Current Price) */
   currentValue: number;
+  /** Unrealized profit or loss in NPR (Current Value - Invested Amount) */
   profitLoss: number;
+  /** Unrealized return percentage ((ProfitLoss / InvestedAmount) * 100) */
   profitLossPercentage: number;
+  /** Percentage of total equity portfolio value represented by this position */
   portfolioWeightPercentage: number;
+  /** Optional sector classification */
   sector?: string;
   isLivePrice?: boolean;
   savedPrice?: number;
 }
 
+/**
+ * Aggregated analytics for the user's entire NEPSE equity portfolio.
+ */
 export interface PortfolioAnalyticsSummary {
+  /** Sum of invested capital across all holdings */
   totalInvested: number;
+  /** Sum of current market valuations across all holdings */
   totalCurrentValue: number;
+  /** Overall portfolio unrealized profit or loss in NPR */
   totalProfitLoss: number;
+  /** Overall portfolio return percentage */
   totalProfitLossPercentage: number;
+  /** Array of computed analytics for individual holdings */
   holdings: HoldingAnalytics[];
 }
 
+/**
+ * Comprehensive cross-domain financial overview combining monthly cash flow and equity assets.
+ */
 export interface OverallFinancialSummary {
+  /** Total monthly income */
   monthlyIncome: number;
+  /** Total monthly expenses */
   monthlyExpenses: number;
+  /** Net monthly savings surplus/deficit */
   monthlySavings: number;
+  /** Savings rate percentage */
   savingsRate: number;
+  /** Projected 1-year savings capacity */
   annualSavings: number;
+  /** Total stock portfolio cost basis */
   totalInvested: number;
+  /** Total current stock portfolio valuation */
   totalCurrentValue: number;
+  /** Total portfolio unrealized profit/loss */
   totalProfitLoss: number;
+  /** Total portfolio return percentage */
   totalProfitLossPercentage: number;
+  /** Combined net position: active equity valuation + projected annual savings */
   totalLiquidAndAssets: number;
 }

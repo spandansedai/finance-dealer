@@ -1,22 +1,38 @@
+/**
+ * @file components/MetricCard.tsx
+ * @description Reusable KPI metric card component for displaying monetary figures,
+ * percentages, trend badges, and financial health indicators across the dashboard and analytics pages.
+ */
+
 import React from 'react';
 
 /**
- * Generic dashboard "stat card" used across the app for income, expenses,
- * savings, and portfolio metrics. Accepts either a raw `amount` (which it
- * formats itself) or a pre-formatted `formattedValue` string, and colors
- * itself based on `type` (e.g. income = green, expense = red).
+ * Props for configuring the visual appearance and value display of a MetricCard.
  */
 interface MetricCardProps {
+  /** Title / label of the metric */
   label: string;
+  /** Raw numeric amount in NPR (will be automatically formatted with commas) */
   amount?: number;
+  /** Pre-formatted string to display instead of raw number (e.g. "+15.20%") */
   formattedValue?: string;
+  /** Currency symbol prefix (default: "Rs.") */
   currency?: string;
+  /** Optional percentage change badge text */
   changePercentage?: number;
+  /** Custom badge text (e.g. "Profit", "5 Sources", "Cost Basis") */
   badgeText?: string;
+  /** Semantic visual styling category */
   type?: 'income' | 'expense' | 'savings' | 'neutral' | 'deficit';
+  /** Optional descriptive subtitle explaining how the metric is calculated */
   subtitle?: string;
 }
 
+/**
+ * MetricCard component renders a single key financial metric with South Asian currency
+ * formatting (en-NP), semantic color themes (emerald for income, rose for expenses/deficits, blue for savings),
+ * and responsive typography.
+ */
 export const MetricCard: React.FC<MetricCardProps> = ({
   label,
   amount,
@@ -28,15 +44,15 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   subtitle,
 }) => {
   const isNegative = amount !== undefined && amount < 0;
-
-  // Prefer a caller-supplied formatted string (e.g. already using formatNepaliCurrency)
-  // and only fall back to formatting the raw amount ourselves.
+  
+  // Format numeric values with standard Nepali numbering separators (Lakhs/Crores)
   const displayAmount = formattedValue !== undefined
     ? formattedValue
     : amount !== undefined
       ? (isNegative ? `- ${new Intl.NumberFormat('en-NP', { maximumFractionDigits: 2 }).format(Math.abs(amount))}` : new Intl.NumberFormat('en-NP', { maximumFractionDigits: 2 }).format(amount))
       : '0';
 
+  // Semantic border, background, and text colors based on card type
   const typeStyles = {
     income: 'border-emerald-500/20 bg-emerald-950/10 text-emerald-600 dark:text-emerald-400',
     expense: 'border-rose-500/20 bg-rose-950/10 text-rose-600 dark:text-rose-400',
@@ -45,6 +61,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     neutral: 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100',
   };
 
+  // Badge pill styling to match card type
   const badgeStyles = {
     income: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
     expense: 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300',
@@ -53,8 +70,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     neutral: 'bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300',
   };
 
-  // A "savings" card with a negative amount is really a deficit, so it should
-  // render with the deficit (red) styling rather than the neutral savings blue.
+  // Automatically switch savings card to deficit styling when net amount is negative
   const effectiveType = type === 'savings' && isNegative ? 'deficit' : type;
 
   return (

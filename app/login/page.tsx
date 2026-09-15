@@ -1,3 +1,9 @@
+/**
+ * @file app/login/page.tsx
+ * @description Authentication page for Finance-Dealer.
+ * Handles user sign-in and sign-up flows using Supabase Auth.
+ */
+
 'use client';
 
 import React, { useState } from 'react';
@@ -5,10 +11,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Combined sign in / sign up page (single form, toggled via `mode`).
- * Handles Supabase auth directly: signInWithPassword for sign in, and signUp
- * for sign up, including the case where Supabase requires email confirmation
- * before a session exists.
+ * Login & Registration Page component.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +22,12 @@ export default function LoginPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Handles the submission of the auth form.
+   * Routes to Supabase signInWithPassword or signUp depending on the current mode.
+   * 
+   * @param e - Form submission event.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,14 +63,14 @@ export default function LoginPage() {
       }
 
       // Check for email enumeration protection where user identities are empty
+      // This happens if the user already exists in Supabase.
       if (data.user && data.user.identities && data.user.identities.length === 0) {
         setError('An account with this email already exists. Please sign in instead.');
         setLoading(false);
         return;
       }
 
-      // If email confirmation is required by the Supabase project settings,
-      // there will be no active session yet after sign up.
+      // If email confirmation is required by project settings, data.session will be null.
       if (data.session) {
         router.push('/expenses');
         router.refresh();

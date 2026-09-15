@@ -1,3 +1,11 @@
+/**
+ * @file app/page.tsx
+ * @description Central Hub / Dashboard for the Finance-Dealer application.
+ * Aggregates and visualizes key financial metrics including income, expenses, 
+ * savings rate, and NEPSE portfolio performance. Supports both authenticated 
+ * Supabase sessions and ephemeral Guest Mode state.
+ */
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -16,19 +24,11 @@ import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 
 /**
- * Main dashboard: pulls the authenticated user's transactions and holdings from
- * Supabase (or falls back to in-memory guest data when logged out), then runs
- * them through the pure calculation engine in lib/calculations/finance.ts to
- * render the metric cards, charts, and overall financial summary below.
- */
-
-/**
- * Normalizes a raw Supabase `holdings` row into the app's StockHolding shape.
- * Supabase columns are snake_case (company_name, average_purchase_price, etc.)
- * while the app's types use camelCase, and some older rows may still use the
- * legacy units/buy_price naming — this reads whichever field is present.
- * `row` is typed `any` because it comes directly from a dynamic Supabase query
- * result rather than a generated/typed schema.
+ * Transforms a raw database row into a structured StockHolding object.
+ * Maps both snake_case (database) and camelCase (guest/previous versions) keys.
+ * 
+ * @param row - Raw data object from Supabase or guest state.
+ * @returns Standardized StockHolding object.
  */
 const rowToHolding = (row: any): StockHolding => ({
   id: row.id,
@@ -42,6 +42,11 @@ const rowToHolding = (row: any): StockHolding => ({
   sector: row.sector ?? undefined,
 });
 
+/**
+ * The primary Dashboard page component.
+ * Manages data fetching for transactions and holdings, identifies user auth status,
+ * and passes data to calculation engines for visualization.
+ */
 export default function HomePage() {
   const { guestTransactions, guestHoldings } = useGuestMode();
   const [userId, setUserId] = useState<string | null>(null);
@@ -49,16 +54,13 @@ export default function HomePage() {
   const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
   const [dbHoldings, setDbHoldings] = useState<StockHolding[]>([]);
 
+  // Orchestrate data loading and auth state listening
   useEffect(() => {
-    // Guards state updates after this effect's cleanup has run (e.g. the
-    // component unmounted mid-fetch), avoiding React's "set state on an
-    // unmounted component" warning/leak.
     let isMounted = true;
 
-    // Initial load: figure out who's logged in (if anyone) and fetch their
-    // transactions/holdings from Supabase. RLS on the tables ensures each
-    // user only ever gets rows they own, so no explicit user_id filter is
-    // needed in the query itself.
+    /**
+     * Loads user-specific data from Supabase if authenticated.
+     */
     const loadUserData = async () => {
       setLoading(true);
       const { data } = await supabase.auth.getUser();
@@ -68,6 +70,7 @@ export default function HomePage() {
       const currentUserId = data.user?.id ?? null;
       setUserId(currentUserId);
 
+      // Fetch from Supabase if we have a valid session
       if (currentUserId) {
         const [txRes, holdingsRes] = await Promise.all([
           supabase
@@ -96,6 +99,7 @@ export default function HomePage() {
           }
         }
       } else {
+        // Clear DB state if user signs out
         setDbTransactions([]);
         setDbHoldings([]);
       }
@@ -107,9 +111,7 @@ export default function HomePage() {
 
     loadUserData();
 
-    // Keep the dashboard in sync with auth changes that happen after the
-    // initial load — e.g. the user signs in/out in another tab, or their
-    // session refreshes — by re-fetching whenever the auth state changes.
+    // Listen for sign-in/sign-out events to re-fetch or clear data
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUserId = session?.user?.id ?? null;
       setUserId(currentUserId);
@@ -180,8 +182,7 @@ export default function HomePage() {
   const isPortfolioProfit = totalProfitLoss > 0;
   const isPortfolioLoss = totalProfitLoss < 0;
 
-  // Combined Financial Position: projected annual savings (only counted if positive,
-  // since a projected deficit isn't an "asset") plus the current NEPSE portfolio value.
+  // Combined Financial Position
   const totalCombinedAssets = totalCurrentValue + Math.max(0, annualSavings);
   const hasAnyData = activeTransactions.length > 0 || activeHoldings.length > 0;
 

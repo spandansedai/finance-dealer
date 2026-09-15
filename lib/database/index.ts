@@ -1,11 +1,10 @@
 /**
- * Supabase client and database helper interfaces (Prepared for v0.4)
+ * @file lib/database/index.ts
+ * @description Database configuration and validation utilities for Supabase connectivity.
  */
 
 /**
- * Type for the two environment variables Supabase needs to connect.
- * Optional here because the app should still boot (in a degraded state) if they're missing,
- * rather than crashing on import.
+ * Configuration options for connecting to the Supabase database.
  */
 export interface DatabaseConfig {
   supabaseUrl?: string;
@@ -13,10 +12,9 @@ export interface DatabaseConfig {
 }
 
 /**
- * Checks whether the required Supabase environment variables are present.
- * Used to guard Supabase-dependent features so the app can show a helpful
- * "not configured" state instead of throwing when env vars are missing
- * (e.g. in local dev before .env.local is set up).
+ * Checks whether the required Supabase environment variables are present in the current runtime.
+ *
+ * @returns True if both NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.
  */
 export const isDatabaseConfigured = (): boolean => {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);

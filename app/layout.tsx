@@ -1,3 +1,10 @@
+/**
+ * @file app/layout.tsx
+ * @description Root layout for the Finance-Dealer application.
+ * Configures global fonts, metadata, viewport settings, and provides the application 
+ * structure including the Navbar and GuestModeContext provider.
+ */
+
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
@@ -5,22 +12,24 @@ import { Navbar } from '@/components/Navbar';
 import { GuestModeProvider } from '@/context/GuestModeContext';
 
 /**
- * App-wide root layout. Wraps every page in GuestModeProvider (so guest-mode
- * data is available anywhere) and renders the persistent Navbar above the
- * page content. overflow-x-hidden on the body is a safety net against
- * unexpected horizontal overflow; the actual fix for content fitting mobile
- * screens should happen at the component level (see components/Navbar.tsx).
+ * Configure Geist Sans font for the primary application UI.
  */
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
+/**
+ * Configure Geist Mono font for financial figures and code snippets.
+ */
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
 
+/**
+ * Mobile-responsive viewport and theme color settings.
+ */
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -31,11 +40,20 @@ export const viewport: Viewport = {
   ],
 };
 
+/**
+ * Global SEO and application metadata.
+ */
 export const metadata: Metadata = {
   title: 'Nepali Personal Finance & NEPSE OS',
   description: 'A lightweight personal finance app for tracking salary, monthly expenses, and NEPSE stock portfolios.',
 };
 
+/**
+ * Root component that wraps all pages.
+ * Integrates GuestModeProvider for ephemeral state management and renders the sticky Navbar.
+ * 
+ * @param props - RootLayout children components.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
