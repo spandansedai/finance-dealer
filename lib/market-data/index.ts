@@ -2,8 +2,8 @@
  * NEPSE market data types and client wrappers
  * Core Rule: Do not query NEPSE APIs directly from the browser UI.
  * (NEPSE = Nepal Stock Exchange. These types describe the shape of data that a
- * server-side integration would eventually populate; the app currently has users
- * enter their own current price manually rather than fetching live prices.)
+ * server-side integration populates; live prices overlay client views while
+ * falling back gracefully to user-saved manual prices.)
  */
 
 /** Snapshot of a single NEPSE-listed stock's trading data for one session. */
@@ -32,4 +32,15 @@ export interface NepseIndexSummary {
   percentChange: number;
   /** Total value traded across the index for the session. */
   turnover: number;
+}
+
+/** Response shape returned by the internal /api/nepse-prices route. */
+export interface NepsePricesApiResponse {
+  success?: boolean;
+  updatedAt: string | null;
+  prices: Record<string, number>;
+  count?: number;
+  cached?: boolean;
+  stale?: boolean;
+  error?: string;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
 import { StockHolding } from '@/types';
@@ -10,12 +10,16 @@ import {
 } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
+import { NepsePricesApiResponse } from '@/lib/market-data';
 
 /**
  * NEPSE stock portfolio page. Authenticated users' holdings are read from and
  * written to the Supabase `holdings` table (RLS-scoped to their own user_id);
  * logged-out visitors use the in-memory guest context instead (see
  * GuestModeContext), same pattern as the expenses page.
+ *
+ * Live NEPSE market prices are periodically fetched server-side via /api/nepse-prices
+ * and overlaid on client views for calculations without mutating the user's database.
  */
 
 // Converts a raw Supabase `holdings` row (snake_case columns, possibly using
@@ -50,6 +54,13 @@ export default function PortfolioPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [loadingHoldings, setLoadingHoldings] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Live price tracking state
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
+  const [liveUpdatedAt, setLiveUpdatedAt] = useState<Date | null>(null);
+  const [liveStatus, setLiveStatus] = useState<'idle' | 'loading' | 'live' | 'fallback'>('idle');
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+  const [timeAgoText, setTimeAgoText] = useState<string>('');
 
   // Form State
   const [symbol, setSymbol] = useState<string>('');
@@ -117,11 +128,86 @@ export default function PortfolioPage() {
     };
   }, []);
 
+  const formatTimeAgo = (date: Date | null): string => {
+    if (!date) return '';
+    const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    if (diffSeconds < 60) return 'just now';
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    return `${diffHours}h ago`;
+  };
+
+  // Internal live price polling helper
+  const fetchLivePrices = async (isManual = false) => {
+    if (isManual) setIsRefreshingPrices(true);
+    try {
+      const res = await fetch('/api/nepse-prices');
+      if (!res.ok) {
+        setLiveStatus((prev) => (prev === 'live' ? 'live' : 'fallback'));
+        return;
+      }
+      const data: NepsePricesApiResponse = await res.json();
+      if (data && data.prices && Object.keys(data.prices).length > 0) {
+        setLivePrices(data.prices);
+        const updateDate = data.updatedAt ? new Date(data.updatedAt) : new Date();
+        setLiveUpdatedAt(updateDate);
+        setTimeAgoText(formatTimeAgo(updateDate));
+        setLiveStatus('live');
+      } else {
+        setLiveStatus((prev) => (prev === 'live' ? 'live' : 'fallback'));
+      }
+    } catch {
+      setLiveStatus((prev) => (prev === 'live' ? 'live' : 'fallback'));
+    } finally {
+      if (isManual) setIsRefreshingPrices(false);
+    }
+  };
+
+  // Poll internal live price API every 3 minutes, update time ago label every 30s
+  useEffect(() => {
+    fetchLivePrices();
+
+    const pollInterval = setInterval(() => {
+      fetchLivePrices();
+    }, 3 * 60 * 1000); // 3 minutes
+
+    const timeAgoInterval = setInterval(() => {
+      setLiveUpdatedAt((curr) => {
+        if (curr) {
+          setTimeAgoText(formatTimeAgo(curr));
+        }
+        return curr;
+      });
+    }, 30 * 1000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(timeAgoInterval);
+    };
+  }, []);
+
   // Active holdings set (Supabase if authenticated, in-memory if guest)
   const activeHoldings = userId ? dbHoldings : guestHoldings;
 
-  // Run pure calculations
-  const portfolioSummary = calculatePortfolioAnalytics(activeHoldings);
+  // Overlay live prices on top of stored holdings for calculation and display
+  const effectiveHoldings = useMemo(() => {
+    return activeHoldings.map((holding) => {
+      const sym = (holding.symbol || '').toUpperCase().trim();
+      const livePrice = livePrices[sym];
+      const hasLivePrice = typeof livePrice === 'number' && livePrice > 0;
+
+      return {
+        ...holding,
+        currentPrice: hasLivePrice ? livePrice : holding.currentPrice,
+        isLivePrice: hasLivePrice,
+        savedPrice: holding.currentPrice,
+      };
+    });
+  }, [activeHoldings, livePrices]);
+
+  // Run pure calculations with effective holdings
+  const portfolioSummary = calculatePortfolioAnalytics(effectiveHoldings);
   const {
     totalInvested,
     totalCurrentValue,
@@ -226,7 +312,7 @@ export default function PortfolioPage() {
     }
   };
 
-  // Start inline price edit
+  // Start inline price edit (editing the stored fallback price)
   const handleStartPriceEdit = (id: string, currentVal: number) => {
     setEditingPriceId(id);
     setTempPriceInput(currentVal.toString());
@@ -333,7 +419,7 @@ export default function PortfolioPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              Track stock holdings, manually entered current prices, invested capital, current valuation, and profit/loss metrics.
+              Track stock holdings, live &amp; manual prices, invested capital, current valuation, and profit/loss metrics.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
@@ -351,10 +437,49 @@ export default function PortfolioPage() {
         <section className="space-y-3 sm:space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                Portfolio Totals &amp; Performance
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                  Portfolio Totals &amp; Performance
+                </h2>
+
+                {/* Live / Fallback Price Status Indicator */}
+                {liveStatus === 'live' ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Live · updated {timeAgoText || 'just now'}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+                    <span>Showing saved prices (live data unavailable)</span>
+                  </span>
+                )}
+
+                {/* Subtle manual refresh button */}
+                <button
+                  type="button"
+                  onClick={() => fetchLivePrices(true)}
+                  disabled={isRefreshingPrices}
+                  title="Refresh live prices"
+                  className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-50 cursor-pointer text-xs inline-flex items-center"
+                >
+                  <svg
+                    className={`w-3.5 h-3.5 ${isRefreshingPrices ? 'animate-spin' : ''}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 Calculations computed from your {activeHoldings.length} stock {activeHoldings.length === 1 ? 'holding' : 'holdings'}.
               </p>
             </div>
@@ -437,7 +562,7 @@ export default function PortfolioPage() {
                 Add Stock Holding {!userId && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Guest Mode)</span>}
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Record your shares, purchase price, and current market price.
+                Record your shares, purchase price, and fallback price.
               </p>
             </div>
 
@@ -523,7 +648,7 @@ export default function PortfolioPage() {
               {/* Current Price */}
               <div>
                 <label htmlFor="currPrice" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Current Price (NPR / Rs.) *
+                  Fallback Current Price (NPR / Rs.) *
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 font-semibold text-sm">
@@ -643,7 +768,7 @@ export default function PortfolioPage() {
                             {formatNepaliCurrency(item.averagePurchasePrice)}
                           </td>
 
-                          {/* Current Price (with inline edit) */}
+                          {/* Current Price (with live indicator & inline edit) */}
                           <td className="py-3.5 px-3 sm:px-4 text-right whitespace-nowrap">
                             {isEditingThis ? (
                               <div className="inline-flex items-center gap-1">
@@ -663,7 +788,7 @@ export default function PortfolioPage() {
                                 <button
                                   type="button"
                                   onClick={() => handleSavePriceEdit(item.id)}
-                                  title="Save price"
+                                  title="Save fallback price"
                                   className="px-1.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
                                 >
                                   ✓
@@ -679,11 +804,20 @@ export default function PortfolioPage() {
                               </div>
                             ) : (
                               <div
-                                onClick={() => handleStartPriceEdit(item.id, item.currentPrice)}
+                                onClick={() => handleStartPriceEdit(item.id, item.savedPrice ?? item.currentPrice)}
                                 className="cursor-pointer group/price inline-flex items-center gap-1 hover:text-emerald-600 dark:hover:text-emerald-400 font-mono text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100"
-                                title="Click to update Current Price"
+                                title={
+                                  item.isLivePrice
+                                    ? `Live price: Rs. ${item.currentPrice} (Saved fallback: Rs. ${item.savedPrice ?? item.currentPrice}) - click to edit saved fallback`
+                                    : 'Click to update saved fallback price'
+                                }
                               >
                                 <span>{formatNepaliCurrency(item.currentPrice)}</span>
+                                {item.isLivePrice && (
+                                  <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-sans font-medium bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                                    Live
+                                  </span>
+                                )}
                                 <span className="opacity-0 group-hover/price:opacity-100 text-[10px] text-zinc-400">
                                   ✏️
                                 </span>

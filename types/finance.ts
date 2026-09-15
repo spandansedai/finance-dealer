@@ -87,6 +87,8 @@ export interface StockHolding {
   units?: number;
   /** @deprecated legacy alias for `averagePurchasePrice` */
   buyPrice?: number;
+  isLivePrice?: boolean;
+  savedPrice?: number;
 }
 
 export interface HoldingAnalytics {
@@ -102,6 +104,8 @@ export interface HoldingAnalytics {
   profitLossPercentage: number;
   portfolioWeightPercentage: number;
   sector?: string;
+  isLivePrice?: boolean;
+  savedPrice?: number;
 }
 
 export interface PortfolioAnalyticsSummary {

@@ -210,6 +210,8 @@ export function calculateHoldingAnalytics(
     profitLossPercentage,
     portfolioWeightPercentage,
     sector: holding.sector,
+    isLivePrice: holding.isLivePrice,
+    savedPrice: holding.savedPrice,
   };
 }
 
@@ -272,6 +274,8 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
       profitLossPercentage: plPercentage,
       portfolioWeightPercentage: weightPercentage,
       sector: item.holding.sector,
+      isLivePrice: item.holding.isLivePrice,
+      savedPrice: item.holding.savedPrice,
     };
   });
 
