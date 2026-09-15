@@ -94,8 +94,8 @@ export async function POST(request: NextRequest) {
     const hasActivity = transactions.length > 0 || holdings.length > 0;
 
     const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+        process.env.NEXT_PUBLIC_APP_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
     const reportDateStr = new Intl.DateTimeFormat('en-US', {
       dateStyle: 'long',
