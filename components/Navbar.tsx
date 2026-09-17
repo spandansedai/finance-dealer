@@ -63,7 +63,7 @@ export const Navbar = () => {
             </span>
             <span className="font-bold">FinanceDealer</span>
             <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800 hidden xs:inline-block">
-              v0.6
+              v1.3
             </span>
           </Link>
 

@@ -415,7 +415,7 @@ export default function PortfolioPage() {
                 NEPSE Portfolio Analytics
               </h1>
               <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.6 Active
+                v1.3 Active
               </span>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">

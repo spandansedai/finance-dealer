@@ -257,3 +257,31 @@ export interface SummaryEmailReportData {
   hasActivity: boolean;
   appUrl: string;
 }
+
+/**
+ * Visual/sentiment classification for automated financial observations.
+ */
+export type InsightType = 'positive' | 'warning' | 'neutral' | 'info';
+
+/**
+ * Domain area classification for financial observations.
+ */
+export type InsightCategory = 'spending' | 'savings' | 'portfolio';
+
+/**
+ * Rule-based factual financial observation generated from user's data.
+ */
+export interface FinancialInsight {
+  /** Unique deterministic identifier for the observation */
+  id: string;
+  /** Sentiment type for styling */
+  type: InsightType;
+  /** Financial domain category */
+  category: InsightCategory;
+  /** Short punchy title */
+  title: string;
+  /** Fact-based observational message derived purely from user's figures */
+  message: string;
+  /** Optional metric badge or value tag */
+  metricTag?: string;
+}

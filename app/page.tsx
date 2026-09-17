@@ -8,9 +8,10 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { MetricCard } from '@/components/MetricCard';
+import { FinancialInsights } from '@/components/FinancialInsights';
 import { PortfolioAllocationChart } from '@/components/PortfolioAllocationChart';
 import { CashFlowChart } from '@/components/CashFlowChart';
 import { StockHolding, Transaction } from '@/types';
@@ -20,6 +21,7 @@ import {
   calculateTotalByType,
   formatNepaliCurrency,
 } from '@/lib/calculations/finance';
+import { generateInsights } from '@/lib/insights';
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 
@@ -161,22 +163,24 @@ export default function HomePage() {
   const totalExpenses = calculateTotalByType(activeTransactions, 'expense');
 
   // Pure Math Calculations - Savings Engine
+  const savingsSummary = calculateSavingsSummary(totalIncome, totalExpenses);
   const {
     monthlyIncome,
     monthlyExpenses,
     monthlySavings,
     savingsRate,
     annualSavings,
-  } = calculateSavingsSummary(totalIncome, totalExpenses);
+  } = savingsSummary;
 
   // Pure Math Calculations - Portfolio Engine
+  const portfolioSummary = calculatePortfolioAnalytics(activeHoldings);
   const {
     totalInvested,
     totalCurrentValue,
     totalProfitLoss,
     totalProfitLossPercentage,
     holdings: analyzedHoldings,
-  } = calculatePortfolioAnalytics(activeHoldings);
+  } = portfolioSummary;
 
   const isSavingsDeficit = monthlySavings < 0;
   const isPortfolioProfit = totalProfitLoss > 0;
@@ -185,6 +189,16 @@ export default function HomePage() {
   // Combined Financial Position
   const totalCombinedAssets = totalCurrentValue + Math.max(0, annualSavings);
   const hasAnyData = activeTransactions.length > 0 || activeHoldings.length > 0;
+
+  // Rule-based factual financial observations
+  const insights = useMemo(() => {
+    return generateInsights({
+      transactions: activeTransactions,
+      savingsSummary,
+      portfolioSummary,
+      holdings: activeHoldings,
+    });
+  }, [activeTransactions, savingsSummary, portfolioSummary, activeHoldings]);
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
@@ -197,7 +211,7 @@ export default function HomePage() {
                 Financial Dashboard
               </h1>
               <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v0.6 Active
+                v1.3 Active
               </span>
             </div>
             <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
@@ -383,6 +397,9 @@ export default function HomePage() {
             />
           </div>
         </section>
+
+        {/* Financial Observations & Insights Engine Section */}
+        <FinancialInsights insights={insights} hasAnyData={hasAnyData} />
 
         {/* Visual Charts Section (2 Charts) */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
