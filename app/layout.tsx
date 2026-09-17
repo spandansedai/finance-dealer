@@ -2,13 +2,14 @@
  * @file app/layout.tsx
  * @description Root layout for the Finance-Dealer application.
  * Configures global fonts, metadata, viewport settings, and provides the application 
- * structure including the Navbar and GuestModeContext provider.
+ * structure including the Navbar, Footer, and GuestModeContext provider.
  */
 
 import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { GuestModeProvider } from '@/context/GuestModeContext';
 
 /**
@@ -44,13 +45,13 @@ export const viewport: Viewport = {
  * Global SEO and application metadata.
  */
 export const metadata: Metadata = {
-  title: 'Nepali Personal Finance & NEPSE OS',
-  description: 'A lightweight personal finance app for tracking salary, monthly expenses, and NEPSE stock portfolios.',
+  title: 'Nepali Personal Finance & NEPSE OS | FinanceDealer',
+  description: 'A lightweight personal finance app for tracking salary, monthly expenses, and NEPSE stock portfolios in Nepal.',
 };
 
 /**
  * Root component that wraps all pages.
- * Integrates GuestModeProvider for ephemeral state management and renders the sticky Navbar.
+ * Integrates GuestModeProvider for ephemeral state management, sticky Navbar, and Footer.
  * 
  * @param props - RootLayout children components.
  */
@@ -65,6 +66,7 @@ export default function RootLayout({
         <GuestModeProvider>
           <Navbar />
           <div className="flex-1 w-full max-w-full overflow-x-hidden">{children}</div>
+          <Footer />
         </GuestModeProvider>
       </body>
     </html>
