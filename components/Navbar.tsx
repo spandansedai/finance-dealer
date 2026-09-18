@@ -46,6 +46,7 @@ export const Navbar = () => {
     { href: '/expenses', label: 'Expenses & Income' },
     { href: '/salary', label: 'Salary' },
     { href: '/portfolio', label: 'NEPSE Portfolio' },
+    { href: '/faq', label: 'FAQ' },
     { href: '/settings', label: 'Settings' },
   ];
 
@@ -93,10 +94,10 @@ export const Navbar = () => {
         </div>
 
         {/* Mobile Navigation Quick Bar */}
-        <div className="flex md:hidden items-center gap-1.5 text-xs">
+        <div className="flex md:hidden items-center gap-1 text-xs overflow-x-auto">
           <Link
             href="/"
-            className={`px-2 py-1 rounded-md ${
+            className={`px-1.5 py-1 rounded-md shrink-0 ${
               pathname === '/' || pathname === '/dashboard' ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
@@ -104,7 +105,7 @@ export const Navbar = () => {
           </Link>
           <Link
             href="/expenses"
-            className={`px-2 py-1 rounded-md ${
+            className={`px-1.5 py-1 rounded-md shrink-0 ${
               pathname.startsWith('/expenses') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
@@ -112,15 +113,23 @@ export const Navbar = () => {
           </Link>
           <Link
             href="/portfolio"
-            className={`px-2 py-1 rounded-md ${
+            className={`px-1.5 py-1 rounded-md shrink-0 ${
               pathname.startsWith('/portfolio') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
             Portfolio
           </Link>
           <Link
+            href="/faq"
+            className={`px-1.5 py-1 rounded-md shrink-0 ${
+              pathname.startsWith('/faq') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
+            }`}
+          >
+            FAQ
+          </Link>
+          <Link
             href="/settings"
-            className={`px-2 py-1 rounded-md ${
+            className={`px-1.5 py-1 rounded-md shrink-0 ${
               pathname.startsWith('/settings') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
             }`}
           >
@@ -129,14 +138,14 @@ export const Navbar = () => {
           {userEmail ? (
             <button
               onClick={handleSignOut}
-              className="px-2 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px]"
+              className="px-1.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] shrink-0"
             >
               Sign Out
             </button>
           ) : (
             <Link
               href="/login"
-              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-medium"
+              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-medium shrink-0"
             >
               Sign In
             </Link>
