@@ -70,6 +70,11 @@ const EXPENSE_CATEGORIES = [
 ];
 
 /**
+ * Default number of transaction items shown per page.
+ */
+const ITEMS_PER_PAGE = 10;
+
+/**
  * The Expenses & Income Page component.
  * Manages transaction entry, list filtering, and core cash flow calculations.
  */
@@ -84,6 +89,7 @@ export default function ExpensesPage() {
   const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Auth + data loading state
   const [userId, setUserId] = useState<string | null>(null);
@@ -157,6 +163,11 @@ export default function ExpensesPage() {
     };
   }, []);
 
+  // Reset pagination to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterType, searchQuery]);
+
   /**
    * Updates the selected transaction type and resets category to the first default.
    * 
@@ -229,10 +240,11 @@ export default function ExpensesPage() {
       });
     }
 
-    // Reset Form fields on success
+    // Reset Form fields on success and jump to first page to see the newly added item
     setAmount('');
     setDescription('');
     setFormError(null);
+    setCurrentPage(1);
   };
 
   /**
@@ -292,7 +304,7 @@ export default function ExpensesPage() {
     }).format(val);
   };
 
-  // Filtered List
+  // Filtered List based on type filter and search term
   const filteredTransactions = activeTransactions.filter((item) => {
     const matchesType = filterType === 'all' || item.type === filterType;
     const matchesSearch =
@@ -300,6 +312,14 @@ export default function ExpensesPage() {
       item.category.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesType && matchesSearch;
   });
+
+  // Pagination calculations over the filtered result set
+  const totalItems = filteredTransactions.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const effectivePage = Math.min(currentPage, totalPages);
+  const startIndex = (effectivePage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   return (
     <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
@@ -599,7 +619,13 @@ export default function ExpensesPage() {
                     Logged Transactions
                   </h2>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Showing {filteredTransactions.length} of {activeTransactions.length} records
+                    {totalItems === 0
+                      ? '0 records'
+                      : `Showing ${startIndex + 1}–${endIndex} of ${totalItems} records${
+                          totalItems !== activeTransactions.length
+                            ? ` (filtered from ${activeTransactions.length})`
+                            : ''
+                        }`}
                   </p>
                 </div>
 
@@ -676,7 +702,7 @@ export default function ExpensesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
-                    {filteredTransactions.map((item) => {
+                    {paginatedTransactions.map((item) => {
                       const isIncome = item.type === 'income';
                       return (
                         <tr
@@ -749,6 +775,76 @@ export default function ExpensesPage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Bar */}
+            {totalPages > 1 && (
+              <div className="p-3 sm:p-4 bg-zinc-50/70 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="text-zinc-500 dark:text-zinc-400 text-center sm:text-left">
+                  Page <span className="font-semibold text-zinc-800 dark:text-zinc-200">{effectivePage}</span> of{' '}
+                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{totalPages}</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={effectivePage <= 1}
+                    className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium shadow-2xs cursor-pointer"
+                  >
+                    ← Prev
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      const isCurrent = pageNum === effectivePage;
+                      if (
+                        totalPages > 7 &&
+                        pageNum !== 1 &&
+                        pageNum !== totalPages &&
+                        Math.abs(pageNum - effectivePage) > 1
+                      ) {
+                        if (
+                          (pageNum === 2 && effectivePage > 3) ||
+                          (pageNum === totalPages - 1 && effectivePage < totalPages - 2)
+                        ) {
+                          return (
+                            <span key={pageNum} className="px-1 text-zinc-400">
+                              …
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                            isCurrent
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={effectivePage >= totalPages}
+                    className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium shadow-2xs cursor-pointer"
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
             )}
 
