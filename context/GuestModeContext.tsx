@@ -14,6 +14,23 @@
 import React, { createContext, useContext, useState } from 'react';
 import { StockHolding, Transaction } from '@/types';
 
+/** Temporary salary-planning data kept only in guest-mode React memory. */
+export interface SalaryProfileDraft {
+  monthlySalary: number;
+  monthlyAllowances: number;
+  monthlyDeductions: number;
+  expectedMonthlyExpense: number;
+  savingsTargetAmount: number | null;
+  savingsTargetPercentage: number | null;
+}
+
+/** A short, named savings objective for salary planning. */
+export interface SavingsGoalDraft {
+  id: string;
+  name: string;
+  targetAmount: number;
+}
+
 /**
  * Shape of the context object exposed to consuming components.
  */
@@ -36,6 +53,12 @@ interface GuestModeContextType {
   deleteGuestHolding: (id: string) => void;
   /** Clears all guest holdings */
   clearGuestHoldings: () => void;
+  /** Guest salary plan; this remains in memory and resets on refresh. */
+  guestSalaryProfile: SalaryProfileDraft | null;
+  /** Guest savings goals; this remains in memory and resets on refresh. */
+  guestSavingsGoals: SavingsGoalDraft[];
+  /** Replaces the guest salary profile and goals. */
+  saveGuestSalaryPlan: (profile: SalaryProfileDraft, goals: SavingsGoalDraft[]) => void;
 }
 
 const GuestModeContext = createContext<GuestModeContextType | undefined>(undefined);
@@ -50,6 +73,8 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   // that data automatically resets upon page refresh.
   const [guestTransactions, setGuestTransactions] = useState<Transaction[]>([]);
   const [guestHoldings, setGuestHoldings] = useState<StockHolding[]>([]);
+  const [guestSalaryProfile, setGuestSalaryProfile] = useState<SalaryProfileDraft | null>(null);
+  const [guestSavingsGoals, setGuestSavingsGoals] = useState<SavingsGoalDraft[]>([]);
 
   /**
    * Adds an income or expense transaction to guest memory.
@@ -114,6 +139,11 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
     setGuestHoldings([]);
   };
 
+  const saveGuestSalaryPlan = (profile: SalaryProfileDraft, goals: SavingsGoalDraft[]) => {
+    setGuestSalaryProfile(profile);
+    setGuestSavingsGoals(goals);
+  };
+
   return (
     <GuestModeContext.Provider
       value={{
@@ -126,6 +156,9 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         updateGuestHoldingPrice,
         deleteGuestHolding,
         clearGuestHoldings,
+        guestSalaryProfile,
+        guestSavingsGoals,
+        saveGuestSalaryPlan,
       }}
     >
       {children}
