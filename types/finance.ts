@@ -88,6 +88,27 @@ export interface Transaction {
   description: string;
   /** ISO date string (YYYY-MM-DD) */
   date: string;
+  /** Optional account or wallet associated with this income/expense entry. */
+  accountId?: string | null;
+}
+
+/** A user-managed place where money is held or spent from. */
+export type AccountType = 'bank' | 'wallet' | 'cash' | 'card' | 'other';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+}
+
+/** An internal movement between two of the user's accounts; never income or expense. */
+export interface AccountTransfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string;
+  note: string;
 }
 
 /**

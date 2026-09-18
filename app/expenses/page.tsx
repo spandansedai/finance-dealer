@@ -10,10 +10,11 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Transaction, TransactionType } from '@/types';
+import { Account, AccountTransfer, AccountType, Transaction, TransactionType } from '@/types';
 import { calculateNetSavings, calculateSavingsRate, calculateTotalByType } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
+import { AccountsManager } from '@/components/AccountsManager';
 
 /**
  * Interface representing a raw transaction record from the database.
@@ -25,6 +26,7 @@ interface TransactionRow {
   category: string;
   description: string;
   date: string;
+  account_id: string | null;
 }
 
 /**
@@ -40,6 +42,25 @@ const rowToTransaction = (row: TransactionRow): Transaction => ({
   category: row.category,
   description: row.description,
   date: row.date,
+  accountId: row.account_id,
+});
+
+interface TransferRow {
+  id: string;
+  from_account_id: string;
+  to_account_id: string;
+  amount: number | string;
+  date: string;
+  note: string;
+}
+
+const rowToTransfer = (row: TransferRow): AccountTransfer => ({
+  id: row.id,
+  fromAccountId: row.from_account_id,
+  toAccountId: row.to_account_id,
+  amount: Number(row.amount),
+  date: row.date,
+  note: row.note,
 });
 
 /**
@@ -84,9 +105,17 @@ export default function ExpensesPage() {
     addGuestTransaction,
     deleteGuestTransaction,
     clearGuestTransactions,
+    guestAccounts,
+    guestTransfers,
+    addGuestAccount,
+    renameGuestAccount,
+    deleteGuestAccount,
+    addGuestTransfer,
   } = useGuestMode();
 
   const [dbTransactions, setDbTransactions] = useState<Transaction[]>([]);
+  const [dbAccounts, setDbAccounts] = useState<Account[]>([]);
+  const [dbTransfers, setDbTransfers] = useState<AccountTransfer[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -105,6 +134,9 @@ export default function ExpensesPage() {
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [accountId, setAccountId] = useState<string>('');
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
 
   /**
    * Loads user transactions from the Supabase database.
@@ -115,7 +147,7 @@ export default function ExpensesPage() {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, type, amount, category, description, date')
+      .select('id, type, amount, category, description, date, account_id')
       .order('date', { ascending: false });
 
     if (error) {
@@ -126,6 +158,19 @@ export default function ExpensesPage() {
 
     setDbTransactions((data ?? []).map(rowToTransaction));
     setLoadingTransactions(false);
+  };
+
+  const loadAccountData = async () => {
+    const [accountsResult, transfersResult] = await Promise.all([
+      supabase.from('accounts').select('id, name, type').order('created_at'),
+      supabase.from('transfers').select('id, from_account_id, to_account_id, amount, date, note').order('date', { ascending: false }),
+    ]);
+    if (accountsResult.error || transfersResult.error) {
+      setAccountError('Could not load accounts or transfers. Please try refreshing.');
+      return;
+    }
+    setDbAccounts((accountsResult.data ?? []) as Account[]);
+    setDbTransfers((transfersResult.data ?? []).map(rowToTransfer));
   };
 
   // Lifecycle: Handle initial authentication check and setup listeners
@@ -141,7 +186,7 @@ export default function ExpensesPage() {
       setAuthChecked(true);
 
       if (currentUserId) {
-        await loadTransactions();
+        await Promise.all([loadTransactions(), loadAccountData()]);
       }
     };
 
@@ -151,9 +196,11 @@ export default function ExpensesPage() {
       const currentUserId = session?.user?.id ?? null;
       setUserId(currentUserId);
       if (currentUserId) {
-        await loadTransactions();
+        await Promise.all([loadTransactions(), loadAccountData()]);
       } else {
         setDbTransactions([]);
+        setDbAccounts([]);
+        setDbTransfers([]);
       }
     });
 
@@ -217,8 +264,9 @@ export default function ExpensesPage() {
           category,
           description: description.trim(),
           date: txDate,
+          account_id: accountId || null,
         })
-        .select('id, type, amount, category, description, date')
+        .select('id, type, amount, category, description, date, account_id')
         .single();
 
       setSubmitting(false);
@@ -237,6 +285,7 @@ export default function ExpensesPage() {
         category,
         description: description.trim(),
         date: txDate,
+        accountId: accountId || null,
       });
     }
 
@@ -284,6 +333,107 @@ export default function ExpensesPage() {
 
   // Select active dataset based on login status
   const activeTransactions = userId ? dbTransactions : guestTransactions;
+  const activeAccounts = userId ? dbAccounts : guestAccounts;
+  const activeTransfers = userId ? dbTransfers : guestTransfers;
+
+  const accountBalances = activeAccounts.reduce<Record<string, number>>((balances, account) => {
+    balances[account.id] = 0;
+    return balances;
+  }, {});
+  activeTransactions.forEach((transaction) => {
+    if (!transaction.accountId || !(transaction.accountId in accountBalances)) return;
+    accountBalances[transaction.accountId] += transaction.type === 'income' ? transaction.amount : -transaction.amount;
+  });
+  activeTransfers.forEach((transfer) => {
+    if (transfer.fromAccountId in accountBalances) accountBalances[transfer.fromAccountId] -= transfer.amount;
+    if (transfer.toAccountId in accountBalances) accountBalances[transfer.toAccountId] += transfer.amount;
+  });
+
+  const handleAddAccount = async (name: string, accountType: AccountType) => {
+    setAccountError(null);
+    setAccountMessage(null);
+    if (!userId) {
+      addGuestAccount({ name, type: accountType });
+      return true;
+    }
+    const { data, error } = await supabase
+      .from('accounts')
+      .insert({ user_id: userId, name, type: accountType })
+      .select('id, name, type')
+      .single();
+    if (error || !data) {
+      setAccountError('Could not add that account. Please try again.');
+      return false;
+    }
+    setDbAccounts((previous) => [...previous, data as Account]);
+    return true;
+  };
+
+  const handleRenameAccount = async (id: string, name: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+    if (!userId) {
+      renameGuestAccount(id, name);
+      return true;
+    }
+    const { error } = await supabase.from('accounts').update({ name }).eq('id', id);
+    if (error) {
+      setAccountError('Could not rename that account. Please try again.');
+      return false;
+    }
+    setDbAccounts((previous) => previous.map((account) => account.id === id ? { ...account, name } : account));
+    return true;
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+    const hasHistory = activeTransactions.some((transaction) => transaction.accountId === id)
+      || activeTransfers.some((transfer) => transfer.fromAccountId === id || transfer.toAccountId === id);
+    if (hasHistory) {
+      setAccountError('This account cannot be deleted because it has linked transactions or transfers. Keep it to preserve its history.');
+      return false;
+    }
+    if (!userId) {
+      deleteGuestAccount(id);
+      if (accountId === id) setAccountId('');
+      return true;
+    }
+    const { error } = await supabase.from('accounts').delete().eq('id', id);
+    if (error) {
+      setAccountError('Could not delete that account. It may have linked history.');
+      return false;
+    }
+    setDbAccounts((previous) => previous.filter((account) => account.id !== id));
+    if (accountId === id) setAccountId('');
+    return true;
+  };
+
+  const handleTransfer = async (fromAccountId: string, toAccountId: string, transferAmount: number, transferDate: string, note: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+    if (fromAccountId === toAccountId || transferAmount <= 0) {
+      setAccountError('Choose two different accounts and a positive transfer amount.');
+      return false;
+    }
+    if (!userId) {
+      addGuestTransfer({ fromAccountId, toAccountId, amount: transferAmount, date: transferDate, note });
+      setAccountMessage('Transfer recorded. It affects account balances only.');
+      return true;
+    }
+    const { data, error } = await supabase
+      .from('transfers')
+      .insert({ user_id: userId, from_account_id: fromAccountId, to_account_id: toAccountId, amount: transferAmount, date: transferDate, note })
+      .select('id, from_account_id, to_account_id, amount, date, note')
+      .single();
+    if (error || !data) {
+      setAccountError('Could not record the transfer. Please try again.');
+      return false;
+    }
+    setDbTransfers((previous) => [rowToTransfer(data), ...previous]);
+    setAccountMessage('Transfer recorded. It affects account balances only.');
+    return true;
+  };
 
   // Derive cash flow aggregates using calculation engine
   const totalIncome = calculateTotalByType(activeTransactions, 'income');
@@ -327,6 +477,16 @@ export default function ExpensesPage() {
         {loadError && (
           <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
             {loadError}
+          </div>
+        )}
+        {accountError && (
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
+            {accountError}
+          </div>
+        )}
+        {accountMessage && (
+          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-700 dark:text-emerald-300">
+            {accountMessage}
           </div>
         )}
         {loadingTransactions && (
@@ -470,6 +630,15 @@ export default function ExpensesPage() {
           ) : null}
         </section>
 
+        <AccountsManager
+          accounts={activeAccounts}
+          balances={accountBalances}
+          onAdd={handleAddAccount}
+          onRename={handleRenameAccount}
+          onDelete={handleDeleteAccount}
+          onTransfer={handleTransfer}
+        />
+
         {/* Main Content: Form + Transactions List */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
           {/* Income & Expense Input Form */}
@@ -593,6 +762,23 @@ export default function ExpensesPage() {
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
                 />
+              </div>
+
+              <div>
+                <label htmlFor="account" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Account <span className="font-normal text-zinc-400">(optional)</span>
+                </label>
+                <select
+                  id="account"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                >
+                  <option value="">No account selected</option>
+                  {activeAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>{account.name}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Submit Button */}

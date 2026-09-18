@@ -12,7 +12,7 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { StockHolding, Transaction } from '@/types';
+import { Account, AccountTransfer, StockHolding, Transaction } from '@/types';
 
 /** Temporary salary-planning data kept only in guest-mode React memory. */
 export interface SalaryProfileDraft {
@@ -45,6 +45,13 @@ interface GuestModeContextType {
   deleteGuestTransaction: (id: string) => void;
   /** Clears all guest transactions */
   clearGuestTransactions: () => void;
+  /** Guest accounts and internal transfers, stored only in browser memory. */
+  guestAccounts: Account[];
+  guestTransfers: AccountTransfer[];
+  addGuestAccount: (account: Omit<Account, 'id'>) => Account;
+  renameGuestAccount: (id: string, name: string) => void;
+  deleteGuestAccount: (id: string) => void;
+  addGuestTransfer: (transfer: Omit<AccountTransfer, 'id'>) => AccountTransfer;
   /** Appends a new guest NEPSE stock holding with a temporary random client ID */
   addGuestHolding: (holding: Omit<StockHolding, 'id'>) => StockHolding;
   /** Updates the market price for an existing in-memory holding */
@@ -72,6 +79,8 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   // Pure in-memory React state — no localStorage or sessionStorage is used to guarantee
   // that data automatically resets upon page refresh.
   const [guestTransactions, setGuestTransactions] = useState<Transaction[]>([]);
+  const [guestAccounts, setGuestAccounts] = useState<Account[]>([]);
+  const [guestTransfers, setGuestTransfers] = useState<AccountTransfer[]>([]);
   const [guestHoldings, setGuestHoldings] = useState<StockHolding[]>([]);
   const [guestSalaryProfile, setGuestSalaryProfile] = useState<SalaryProfileDraft | null>(null);
   const [guestSavingsGoals, setGuestSavingsGoals] = useState<SavingsGoalDraft[]>([]);
@@ -101,6 +110,26 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
    */
   const clearGuestTransactions = () => {
     setGuestTransactions([]);
+  };
+
+  const addGuestAccount = (account: Omit<Account, 'id'>): Account => {
+    const newAccount = { ...account, id: `guest-account-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` };
+    setGuestAccounts((previous) => [...previous, newAccount]);
+    return newAccount;
+  };
+
+  const renameGuestAccount = (id: string, name: string) => {
+    setGuestAccounts((previous) => previous.map((account) => account.id === id ? { ...account, name } : account));
+  };
+
+  const deleteGuestAccount = (id: string) => {
+    setGuestAccounts((previous) => previous.filter((account) => account.id !== id));
+  };
+
+  const addGuestTransfer = (transfer: Omit<AccountTransfer, 'id'>): AccountTransfer => {
+    const newTransfer = { ...transfer, id: `guest-transfer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` };
+    setGuestTransfers((previous) => [newTransfer, ...previous]);
+    return newTransfer;
   };
 
   /**
@@ -152,6 +181,12 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         addGuestTransaction,
         deleteGuestTransaction,
         clearGuestTransactions,
+        guestAccounts,
+        guestTransfers,
+        addGuestAccount,
+        renameGuestAccount,
+        deleteGuestAccount,
+        addGuestTransfer,
         addGuestHolding,
         updateGuestHoldingPrice,
         deleteGuestHolding,
