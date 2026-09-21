@@ -90,10 +90,17 @@ export interface Transaction {
   date: string;
   /** Optional account or wallet associated with this income/expense entry. */
   accountId?: string | null;
+  /** Original foreign-currency amount when this was a Dollar Card expense. */
+  originalAmount?: number | null;
+  originalCurrency?: 'USD' | null;
+  /** NPR per USD rate used when the transaction was recorded. */
+  exchangeRate?: number | null;
+  exchangeRateDate?: string | null;
+  exchangeRateStatus?: 'live' | 'stale' | 'manual' | null;
 }
 
 /** A user-managed place where money is held or spent from. */
-export type AccountType = 'bank' | 'wallet' | 'cash' | 'card' | 'other';
+export type AccountType = 'bank' | 'wallet' | 'cash' | 'card' | 'dollar_card' | 'other';
 
 export interface Account {
   id: string;

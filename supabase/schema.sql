@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS public.accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 120),
-  type TEXT NOT NULL CHECK (type IN ('bank', 'wallet', 'cash', 'card', 'other')),
+  type TEXT NOT NULL CHECK (type IN ('bank', 'wallet', 'cash', 'card', 'dollar_card', 'other')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -172,3 +172,14 @@ CREATE POLICY "Users can manage own transfers" ON public.transfers FOR ALL TO au
 CREATE INDEX IF NOT EXISTS idx_transfers_user_id ON public.transfers (user_id);
 CREATE INDEX IF NOT EXISTS idx_transfers_from_account_id ON public.transfers (from_account_id);
 CREATE INDEX IF NOT EXISTS idx_transfers_to_account_id ON public.transfers (to_account_id);
+
+-- Dollar Card expenses preserve the original USD amount and the NPR rate used.
+ALTER TABLE public.transactions
+  ADD COLUMN IF NOT EXISTS original_amount NUMERIC(14, 2),
+  ADD COLUMN IF NOT EXISTS original_currency TEXT CHECK (original_currency IS NULL OR original_currency = 'USD'),
+  ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(14, 6) CHECK (exchange_rate IS NULL OR exchange_rate > 0),
+  ADD COLUMN IF NOT EXISTS exchange_rate_date DATE,
+  ADD COLUMN IF NOT EXISTS exchange_rate_status TEXT CHECK (exchange_rate_status IS NULL OR exchange_rate_status IN ('live', 'stale', 'manual')),
+  CHECK (original_amount IS NULL OR original_amount > 0),
+  CHECK ((original_currency IS NULL AND original_amount IS NULL AND exchange_rate IS NULL AND exchange_rate_date IS NULL AND exchange_rate_status IS NULL)
+    OR (original_currency = 'USD' AND original_amount IS NOT NULL AND exchange_rate IS NOT NULL AND exchange_rate_date IS NOT NULL AND exchange_rate_status IS NOT NULL));

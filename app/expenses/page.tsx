@@ -27,6 +27,11 @@ interface TransactionRow {
   description: string;
   date: string;
   account_id: string | null;
+  original_amount: number | string | null;
+  original_currency: 'USD' | null;
+  exchange_rate: number | string | null;
+  exchange_rate_date: string | null;
+  exchange_rate_status: 'live' | 'stale' | 'manual' | null;
 }
 
 /**
@@ -43,7 +48,21 @@ const rowToTransaction = (row: TransactionRow): Transaction => ({
   description: row.description,
   date: row.date,
   accountId: row.account_id,
+  originalAmount: row.original_amount === null ? null : Number(row.original_amount),
+  originalCurrency: row.original_currency,
+  exchangeRate: row.exchange_rate === null ? null : Number(row.exchange_rate),
+  exchangeRateDate: row.exchange_rate_date,
+  exchangeRateStatus: row.exchange_rate_status,
 });
+
+interface FxRateResponse {
+  success: boolean;
+  buy?: number;
+  sell?: number;
+  asOf?: string;
+  stale?: boolean;
+  error?: string;
+}
 
 interface TransferRow {
   id: string;
@@ -137,6 +156,12 @@ export default function ExpensesPage() {
   const [accountId, setAccountId] = useState<string>('');
   const [accountError, setAccountError] = useState<string | null>(null);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
+  const [fxRate, setFxRate] = useState<FxRateResponse | null>(null);
+  const [fxLoading, setFxLoading] = useState(false);
+  const [manualUsdRate, setManualUsdRate] = useState('');
+
+  const selectedAccount = (userId ? dbAccounts : guestAccounts).find((account) => account.id === accountId);
+  const isDollarCardExpense = type === 'expense' && selectedAccount?.type === 'dollar_card';
 
   /**
    * Loads user transactions from the Supabase database.
@@ -147,7 +172,7 @@ export default function ExpensesPage() {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('id, type, amount, category, description, date, account_id')
+      .select('id, type, amount, category, description, date, account_id, original_amount, original_currency, exchange_rate, exchange_rate_date, exchange_rate_status')
       .order('date', { ascending: false });
 
     if (error) {
@@ -210,6 +235,25 @@ export default function ExpensesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isDollarCardExpense) return;
+    let cancelled = false;
+    const loadFxRate = async () => {
+      setFxLoading(true);
+      try {
+        const response = await fetch('/api/fx-rate');
+        const data = await response.json() as FxRateResponse;
+        if (!cancelled) setFxRate(data);
+      } catch {
+        if (!cancelled) setFxRate({ success: false, error: 'Could not reach the FinanceDealer FX service. Enter a manual NPR-per-USD rate to continue.' });
+      } finally {
+        if (!cancelled) setFxLoading(false);
+      }
+    };
+    loadFxRate();
+    return () => { cancelled = true; };
+  }, [isDollarCardExpense]);
+
   // Reset pagination to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -239,18 +283,34 @@ export default function ExpensesPage() {
     e.preventDefault();
     setFormError(null);
 
-    const parsedAmount = parseFloat(amount);
-    if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+    const enteredAmount = parseFloat(amount);
+    if (!enteredAmount || isNaN(enteredAmount) || enteredAmount <= 0) {
       setFormError('Please enter a valid amount greater than 0.');
       return;
     }
+
+    const txDate = date || new Date().toISOString().split('T')[0];
+
+    const manualRate = Number(manualUsdRate);
+    const hasLiveRate = Boolean(fxRate?.success && fxRate.sell && fxRate.sell > 0 && !fxRate.stale);
+    const hasStaleRate = Boolean(fxRate?.success && fxRate.sell && fxRate.sell > 0 && fxRate.stale);
+    const effectiveUsdRate = (hasLiveRate || hasStaleRate) ? fxRate!.sell! : (manualRate > 0 ? manualRate : null);
+    if (isDollarCardExpense && !effectiveUsdRate) {
+      setFormError('The NRB rate is unavailable. Enter a positive manual NPR-per-USD rate to log this Dollar Card expense.');
+      return;
+    }
+    const parsedAmount = isDollarCardExpense && effectiveUsdRate ? Number((enteredAmount * effectiveUsdRate).toFixed(2)) : enteredAmount;
+    const exchangeRateStatus = isDollarCardExpense
+      ? (hasLiveRate ? 'live' : hasStaleRate ? 'stale' : 'manual')
+      : null;
+    const exchangeRateDate = isDollarCardExpense
+      ? ((hasLiveRate || hasStaleRate) ? (fxRate?.asOf ?? txDate) : txDate)
+      : null;
 
     if (!description.trim()) {
       setFormError('Please provide a description or note for this transaction.');
       return;
     }
-
-    const txDate = date || new Date().toISOString().split('T')[0];
 
     // Branch logic: Persist based on authentication status
     if (userId) {
@@ -265,8 +325,13 @@ export default function ExpensesPage() {
           description: description.trim(),
           date: txDate,
           account_id: accountId || null,
+          original_amount: isDollarCardExpense ? enteredAmount : null,
+          original_currency: isDollarCardExpense ? 'USD' : null,
+          exchange_rate: isDollarCardExpense ? effectiveUsdRate : null,
+          exchange_rate_date: exchangeRateDate,
+          exchange_rate_status: exchangeRateStatus,
         })
-        .select('id, type, amount, category, description, date, account_id')
+        .select('id, type, amount, category, description, date, account_id, original_amount, original_currency, exchange_rate, exchange_rate_date, exchange_rate_status')
         .single();
 
       setSubmitting(false);
@@ -286,12 +351,18 @@ export default function ExpensesPage() {
         description: description.trim(),
         date: txDate,
         accountId: accountId || null,
+        originalAmount: isDollarCardExpense ? enteredAmount : null,
+        originalCurrency: isDollarCardExpense ? 'USD' : null,
+        exchangeRate: isDollarCardExpense ? effectiveUsdRate : null,
+        exchangeRateDate: exchangeRateDate,
+        exchangeRateStatus,
       });
     }
 
     // Reset Form fields on success and jump to first page to see the newly added item
     setAmount('');
     setDescription('');
+    setManualUsdRate('');
     setFormError(null);
     setCurrentPage(1);
   };
@@ -695,18 +766,18 @@ export default function ExpensesPage() {
               {/* Amount Field */}
               <div>
                 <label htmlFor="amount" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Amount (in NPR / Rs.) *
+                  {isDollarCardExpense ? 'Amount (USD) *' : 'Amount (in NPR / Rs.) *'}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 font-semibold text-sm">
-                    Rs.
+                    {isDollarCardExpense ? 'USD' : 'Rs.'}
                   </div>
                   <input
                     id="amount"
                     type="number"
                     step="any"
                     min="0"
-                    placeholder="e.g. 5000"
+                    placeholder={isDollarCardExpense ? 'e.g. 12.99' : 'e.g. 5000'}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     required
@@ -733,6 +804,19 @@ export default function ExpensesPage() {
                   ))}
                 </select>
               </div>
+
+              {isDollarCardExpense && (
+                <div className={`rounded-xl border p-3 text-xs ${fxRate?.stale ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100' : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'}`}>
+                  {fxLoading ? (
+                    <p>Loading the official NRB USD rate…</p>
+                  ) : fxRate?.success && fxRate.sell ? (
+                    <p><strong>{fxRate.stale ? 'Possibly stale NRB fallback:' : 'Current NRB sell rate:'}</strong> 1 USD ≈ Rs. {formatCurrency(fxRate.sell)}{fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}. {fxRate.stale ? 'This is the last successfully fetched rate.' : 'Used for Dollar Card spending.'}</p>
+                  ) : (
+                    <div className="space-y-2"><p><strong>NRB rate unavailable:</strong> {fxRate?.error ?? 'No rate could be loaded.'} Enter the manual rate below; the transaction will be marked manual.</p><label className="block font-semibold">Manual NPR per USD<input type="number" min="0.000001" step="0.000001" value={manualUsdRate} onChange={(event) => setManualUsdRate(event.target.value)} placeholder="e.g. 140.25" className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-1.5 text-sm text-zinc-900 dark:border-amber-800 dark:bg-zinc-900 dark:text-zinc-100" /></label></div>
+                  )}
+                  {amount && !fxLoading && (fxRate?.success && fxRate.sell || Number(manualUsdRate) > 0) && <p className="mt-2 font-semibold">Converted NPR total: Rs. {formatCurrency(Number(amount) * (fxRate?.success && fxRate.sell ? fxRate.sell : Number(manualUsdRate)))}</p>}
+                </div>
+              )}
 
               {/* Description / Note */}
               <div>
@@ -929,7 +1013,9 @@ export default function ExpensesPage() {
                                   : 'text-rose-600 dark:text-rose-400'
                               }
                             >
-                              {isIncome ? '+' : '−'} Rs. {formatCurrency(item.amount)}
+                              {item.originalCurrency === 'USD' && item.originalAmount && item.exchangeRate ? (
+                                <><span>− USD {formatCurrency(item.originalAmount)}</span><span className="block text-[10px] font-medium text-zinc-500 dark:text-zinc-400">≈ Rs. {formatCurrency(item.amount)} @ {formatCurrency(item.exchangeRate)}{item.exchangeRateStatus === 'stale' ? ' (stale)' : item.exchangeRateStatus === 'manual' ? ' (manual)' : ''}</span></>
+                              ) : <>{isIncome ? '+' : '−'} Rs. {formatCurrency(item.amount)}</>}
                             </span>
                           </td>
 
