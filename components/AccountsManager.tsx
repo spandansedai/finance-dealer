@@ -201,7 +201,7 @@ export function AccountsManager({
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteConfirmItem) return;
+    if (!deleteConfirmItem || deleteConfirmItem.isVerified) return;
     setBusy(true);
     if (deleteConfirmItem.type === 'transfer' && onDeleteTransfer) {
       await onDeleteTransfer(deleteConfirmItem.id, deleteConfirmItem.isVerified);
@@ -532,23 +532,24 @@ export function AccountsManager({
                                       id: adj.id,
                                       description: `Adjustment of ${adj.amount >= 0 ? '+' : ''}Rs. ${formatCurrency(adj.amount)} on ${account?.name ?? 'Account'}`,
                                     })}
-                                    className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                                    className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer"
                                   >
                                     Unlock
                                   </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirmItem({
-                                    type: 'adjustment',
-                                    id: adj.id,
-                                    isVerified,
-                                    description: `Adjustment of ${adj.amount >= 0 ? '+' : ''}Rs. ${formatCurrency(adj.amount)} on ${account?.name ?? 'Account'}`,
-                                  })}
-                                  className="text-[11px] text-rose-500 hover:underline cursor-pointer"
-                                >
-                                  Delete
-                                </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirmItem({
+                                      type: 'adjustment',
+                                      id: adj.id,
+                                      isVerified: false,
+                                      description: `Adjustment of ${adj.amount >= 0 ? '+' : ''}Rs. ${formatCurrency(adj.amount)} on ${account?.name ?? 'Account'}`,
+                                    })}
+                                    className="text-[11px] text-rose-500 hover:underline cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -616,23 +617,24 @@ export function AccountsManager({
                                       id: tx.id,
                                       description: `Transfer of Rs. ${formatCurrency(tx.amount)} from ${fromAcc} to ${toAcc}`,
                                     })}
-                                    className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                                    className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold hover:underline cursor-pointer"
                                   >
                                     Unlock
                                   </button>
-                                ) : null}
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirmItem({
-                                    type: 'transfer',
-                                    id: tx.id,
-                                    isVerified,
-                                    description: `Transfer of Rs. ${formatCurrency(tx.amount)} from ${fromAcc} to ${toAcc}`,
-                                  })}
-                                  className="text-[11px] text-rose-500 hover:underline cursor-pointer"
-                                >
-                                  Delete
-                                </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirmItem({
+                                      type: 'transfer',
+                                      id: tx.id,
+                                      isVerified: false,
+                                      description: `Transfer of Rs. ${formatCurrency(tx.amount)} from ${fromAcc} to ${toAcc}`,
+                                    })}
+                                    className="text-[11px] text-rose-500 hover:underline cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

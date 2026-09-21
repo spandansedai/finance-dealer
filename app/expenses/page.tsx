@@ -204,7 +204,7 @@ export default function ExpensesPage() {
   const [fxLoading, setFxLoading] = useState(false);
   const [manualUsdRate, setManualUsdRate] = useState('');
 
-  // Modals for Transaction Editing, Unlocking, Deletion, and Conversion
+  // Modals for Transaction Editing, Unlocking, and Conversion
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [editCategory, setEditCategory] = useState('');
@@ -214,7 +214,6 @@ export default function ExpensesPage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const [unlockModalTx, setUnlockModalTx] = useState<Transaction | null>(null);
-  const [deleteModalTx, setDeleteModalTx] = useState<Transaction | null>(null);
   const [convertModalTx, setConvertModalTx] = useState<Transaction | null>(null);
   const [convertTargetAccountId, setConvertTargetAccountId] = useState<string>('');
   const [convertDeltaAmount, setConvertDeltaAmount] = useState<string>('');
@@ -443,11 +442,16 @@ export default function ExpensesPage() {
   };
 
   /**
-   * Delete transaction handler
+   * Delete transaction handler (strictly for unverified transactions; verified transactions must be unlocked first)
    */
   const executeDeleteTransaction = async (id: string) => {
+    const target = activeTransactions.find((tx) => tx.id === id);
+    if (target?.verified) {
+      setAccountError('This transaction is verified and locked against deletion. Unlock it first to delete.');
+      return;
+    }
     if (userId) {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
+      const { error } = await supabase.from('transactions').delete().eq('id', id).eq('verified', false);
       if (error) {
         setLoadError('Could not delete that transaction. Please try again.');
         return;
@@ -456,15 +460,7 @@ export default function ExpensesPage() {
     } else {
       deleteGuestTransaction(id);
     }
-    setDeleteModalTx(null);
-  };
-
-  const handleDeleteTransactionClick = (tx: Transaction) => {
-    if (tx.verified) {
-      setDeleteModalTx(tx);
-    } else {
-      executeDeleteTransaction(tx.id);
-    }
+    setAccountMessage('Transaction deleted.');
   };
 
   /**
@@ -650,8 +646,13 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteAdjustment = async (id: string) => {
+    const target = activeAdjustments.find((a) => a.id === id);
+    if (target?.verified) {
+      setAccountError('This balance adjustment is verified and locked against deletion. Unlock it first to delete.');
+      return;
+    }
     if (userId) {
-      const { error } = await supabase.from('balance_adjustments').delete().eq('id', id);
+      const { error } = await supabase.from('balance_adjustments').delete().eq('id', id).eq('verified', false);
       if (error) {
         setAccountError('Could not delete balance adjustment.');
         return;
@@ -681,8 +682,13 @@ export default function ExpensesPage() {
   };
 
   const handleDeleteTransfer = async (id: string) => {
+    const target = activeTransfers.find((t) => t.id === id);
+    if (target?.verified) {
+      setAccountError('This transfer is verified and locked against deletion. Unlock it first to delete.');
+      return;
+    }
     if (userId) {
-      const { error } = await supabase.from('transfers').delete().eq('id', id);
+      const { error } = await supabase.from('transfers').delete().eq('id', id).eq('verified', false);
       if (error) {
         setAccountError('Could not delete transfer.');
         return;
@@ -844,15 +850,53 @@ export default function ExpensesPage() {
   };
 
   const handleClearAll = async () => {
+    setAccountError(null);
+    setLoadError(null);
+
+    const verifiedCount = activeTransactions.filter((tx) => tx.verified).length;
+    const unverifiedCount = activeTransactions.length - verifiedCount;
+
+    if (unverifiedCount === 0) {
+      if (verifiedCount > 0) {
+        setAccountMessage(
+          `No unverified records to clear. All ${verifiedCount} transaction${
+            verifiedCount === 1 ? '' : 's'
+          } are verified and protected.`
+        );
+      } else {
+        setAccountMessage('No records to clear.');
+      }
+      return;
+    }
+
     if (userId) {
-      const { error } = await supabase.from('transactions').delete().eq('user_id', userId);
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('user_id', userId)
+        .eq('verified', false);
+
       if (error) {
         setLoadError('Could not clear your records. Please try again.');
         return;
       }
-      setDbTransactions([]);
+      setDbTransactions((prev) => prev.filter((item) => item.verified));
     } else {
       clearGuestTransactions();
+    }
+
+    if (verifiedCount > 0) {
+      setAccountMessage(
+        `Cleared ${unverifiedCount} unverified record${
+          unverifiedCount === 1 ? '' : 's'
+        }. ${verifiedCount} verified record${
+          verifiedCount === 1 ? ' was' : 's were'
+        } protected and kept intact.`
+      );
+    } else {
+      setAccountMessage(
+        `Cleared ${unverifiedCount} record${unverifiedCount === 1 ? '' : 's'}.`
+      );
     }
   };
 
@@ -1520,17 +1564,19 @@ export default function ExpensesPage() {
                                 </button>
                               )}
 
-                              {/* Delete Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTransactionClick(item)}
-                                title={isVerified ? 'Delete verified transaction (requires confirmation)' : 'Delete transaction'}
-                                className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
+                              {/* Delete Button (Only for Unverified) */}
+                              {!isVerified && (
+                                <button
+                                  type="button"
+                                  onClick={() => executeDeleteTransaction(item.id)}
+                                  title="Delete transaction"
+                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1801,41 +1847,6 @@ export default function ExpensesPage() {
                 className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-500 cursor-pointer"
               >
                 Yes, Unlock
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Verified Confirmation Modal */}
-      {deleteModalTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 p-5 shadow-xl space-y-3">
-            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-sm">
-              <span className="text-lg">🗑️</span>
-              <span>Delete Verified Transaction?</span>
-            </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              This transaction is marked as verified against your statements. Deleting it will change your monthly totals and live account balances.
-            </p>
-            <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-300 space-y-0.5">
-              <div><strong>{deleteModalTx.description}</strong></div>
-              <div>{deleteModalTx.date} · Rs. {formatCurrency(deleteModalTx.amount)}</div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteModalTx(null)}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => executeDeleteTransaction(deleteModalTx.id)}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-rose-600 text-white hover:bg-rose-500 cursor-pointer"
-              >
-                Delete Record
               </button>
             </div>
           </div>

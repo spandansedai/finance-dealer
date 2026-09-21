@@ -117,17 +117,17 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * Deletes a guest transaction by its unique ID.
+   * Deletes a guest transaction by its unique ID (skips verified transactions).
    */
   const deleteGuestTransaction = (id: string) => {
-    setGuestTransactions((prev) => prev.filter((item) => item.id !== id));
+    setGuestTransactions((prev) => prev.filter((item) => item.id !== id || item.verified));
   };
 
   /**
-   * Resets the in-memory guest transactions list.
+   * Resets unverified in-memory guest transactions; verified records are preserved.
    */
   const clearGuestTransactions = () => {
-    setGuestTransactions([]);
+    setGuestTransactions((prev) => prev.filter((item) => item.verified));
   };
 
   const addGuestAccount = (account: Omit<Account, 'id'>): Account => {
@@ -157,7 +157,7 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteGuestTransfer = (id: string) => {
-    setGuestTransfers((previous) => previous.filter((t) => t.id !== id));
+    setGuestTransfers((previous) => previous.filter((t) => t.id !== id || t.verified));
   };
 
   const addGuestAdjustment = (adj: Omit<BalanceAdjustment, 'id'>): BalanceAdjustment => {
@@ -177,7 +177,7 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteGuestAdjustment = (id: string) => {
-    setGuestAdjustments((previous) => previous.filter((a) => a.id !== id));
+    setGuestAdjustments((previous) => previous.filter((a) => a.id !== id || a.verified));
   };
 
   /**
