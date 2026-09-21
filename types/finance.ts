@@ -97,6 +97,8 @@ export interface Transaction {
   exchangeRate?: number | null;
   exchangeRateDate?: string | null;
   exchangeRateStatus?: 'live' | 'stale' | 'manual' | null;
+  /** Whether this transaction has been verified against statements and locked against edits. */
+  verified?: boolean;
 }
 
 /** A user-managed place where money is held or spent from. */
@@ -116,6 +118,25 @@ export interface AccountTransfer {
   amount: number;
   date: string;
   note: string;
+  /** Whether this transfer has been verified against statements. */
+  verified?: boolean;
+}
+
+/**
+ * Dedicated balance adjustment record for reconciling account balances.
+ * Targets exactly one account with a signed amount (+/-) and never affects
+ * income/expense totals, savings calculations, or insights.
+ */
+export interface BalanceAdjustment {
+  id: string;
+  accountId: string;
+  /** Signed correction amount in NPR (positive increases balance, negative decreases balance) */
+  amount: number;
+  date: string;
+  note?: string;
+  /** Whether this balance adjustment has been verified against bank/wallet records. */
+  verified?: boolean;
+  createdAt?: string;
 }
 
 /**

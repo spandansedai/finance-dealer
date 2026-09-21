@@ -6,6 +6,9 @@
  */
 
 import {
+  Account,
+  AccountTransfer,
+  BalanceAdjustment,
   HoldingAnalytics,
   OverallFinancialSummary,
   PortfolioAnalyticsSummary,
@@ -150,6 +153,114 @@ export function calculateCategoryBreakdown(
       acc[t.category] = (acc[t.category] || 0) + (Number(t.amount) || 0);
       return acc;
     }, {} as Record<string, number>);
+}
+
+/* ==========================================================================
+   Live Account Balance Calculation Engine
+   ========================================================================== */
+
+/**
+ * Derives live account balances by summing transactions, transfers, and dedicated balance adjustments.
+ * Balances are never statically stored; they are always dynamically derived.
+ *
+ * Formula per account:
+ *   Balance = (Sum of linked Income Transactions - Sum of linked Expense Transactions)
+ *           + (Sum of Transfers IN - Sum of Transfers OUT)
+ *           + (Sum of Balance Adjustments)
+ *
+ * @param accounts - Array of user accounts.
+ * @param transactions - Array of income and expense transactions.
+ * @param transfers - Array of internal account transfers.
+ * @param adjustments - Array of dedicated balance adjustments.
+ * @returns Map of account ID to live balance in NPR (rounded to 2 decimal places).
+ */
+export function calculateAccountBalances(
+  accounts: Account[],
+  transactions: Transaction[],
+  transfers: AccountTransfer[],
+  adjustments: BalanceAdjustment[] = []
+): Record<string, number> {
+  const balances: Record<string, number> = {};
+  for (const account of accounts) {
+    balances[account.id] = 0;
+  }
+
+  for (const tx of transactions) {
+    if (tx.accountId && tx.accountId in balances) {
+      const amount = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        balances[tx.accountId] += amount;
+      } else if (tx.type === 'expense') {
+        balances[tx.accountId] -= amount;
+      }
+    }
+  }
+
+  for (const transfer of transfers) {
+    const amount = Number(transfer.amount) || 0;
+    if (transfer.fromAccountId in balances) {
+      balances[transfer.fromAccountId] -= amount;
+    }
+    if (transfer.toAccountId in balances) {
+      balances[transfer.toAccountId] += amount;
+    }
+  }
+
+  for (const adj of adjustments) {
+    const amount = Number(adj.amount) || 0;
+    if (adj.accountId in balances) {
+      balances[adj.accountId] += amount;
+    }
+  }
+
+  for (const id of Object.keys(balances)) {
+    balances[id] = Number(balances[id].toFixed(2));
+  }
+
+  return balances;
+}
+
+/**
+ * Derives the live balance of a single account from its linked transactions, transfers, and adjustments.
+ *
+ * @param accountId - Target account identifier.
+ * @param transactions - Array of income and expense transactions.
+ * @param transfers - Array of internal account transfers.
+ * @param adjustments - Array of dedicated balance adjustments.
+ * @returns Live balance in NPR rounded to 2 decimal places.
+ */
+export function calculateAccountBalance(
+  accountId: string,
+  transactions: Transaction[],
+  transfers: AccountTransfer[],
+  adjustments: BalanceAdjustment[] = []
+): number {
+  let balance = 0;
+
+  for (const tx of transactions) {
+    if (tx.accountId === accountId) {
+      const amount = Number(tx.amount) || 0;
+      balance += tx.type === 'income' ? amount : -amount;
+    }
+  }
+
+  for (const transfer of transfers) {
+    const amount = Number(transfer.amount) || 0;
+    if (transfer.fromAccountId === accountId) {
+      balance -= amount;
+    }
+    if (transfer.toAccountId === accountId) {
+      balance += amount;
+    }
+  }
+
+  for (const adj of adjustments) {
+    if (adj.accountId === accountId) {
+      balance += Number(adj.amount) || 0;
+    }
+  }
+
+  return Number(balance.toFixed(2));
 }
 
 /* ==========================================================================\n   Portfolio Analytics Pure Calculation Engine\n   ========================================================================== */

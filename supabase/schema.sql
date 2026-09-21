@@ -180,6 +180,36 @@ ALTER TABLE public.transactions
   ADD COLUMN IF NOT EXISTS exchange_rate NUMERIC(14, 6) CHECK (exchange_rate IS NULL OR exchange_rate > 0),
   ADD COLUMN IF NOT EXISTS exchange_rate_date DATE,
   ADD COLUMN IF NOT EXISTS exchange_rate_status TEXT CHECK (exchange_rate_status IS NULL OR exchange_rate_status IN ('live', 'stale', 'manual')),
+  ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE,
   CHECK (original_amount IS NULL OR original_amount > 0),
   CHECK ((original_currency IS NULL AND original_amount IS NULL AND exchange_rate IS NULL AND exchange_rate_date IS NULL AND exchange_rate_status IS NULL)
     OR (original_currency = 'USD' AND original_amount IS NOT NULL AND exchange_rate IS NOT NULL AND exchange_rate_date IS NOT NULL AND exchange_rate_status IS NOT NULL));
+
+ALTER TABLE public.transfers
+  ADD COLUMN IF NOT EXISTS verified BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 6. Dedicated Balance Adjustments Table
+CREATE TABLE IF NOT EXISTS public.balance_adjustments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE RESTRICT,
+  amount NUMERIC(14, 2) NOT NULL CHECK (amount <> 0),
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  note TEXT NOT NULL DEFAULT '' CHECK (char_length(note) <= 250),
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.balance_adjustments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can manage own balance adjustments"
+  ON public.balance_adjustments FOR ALL TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK (
+    (SELECT auth.uid()) = user_id
+    AND EXISTS (SELECT 1 FROM public.accounts WHERE id = account_id AND user_id = (SELECT auth.uid()))
+  );
+
+CREATE INDEX IF NOT EXISTS idx_balance_adjustments_user_id ON public.balance_adjustments (user_id);
+CREATE INDEX IF NOT EXISTS idx_balance_adjustments_account_id ON public.balance_adjustments (account_id);
+CREATE INDEX IF NOT EXISTS idx_balance_adjustments_date ON public.balance_adjustments (account_id, date DESC);

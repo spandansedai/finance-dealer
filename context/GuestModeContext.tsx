@@ -12,7 +12,7 @@
 'use client';
 
 import React, { createContext, useContext, useState } from 'react';
-import { Account, AccountTransfer, StockHolding, Transaction } from '@/types';
+import { Account, AccountTransfer, BalanceAdjustment, StockHolding, Transaction } from '@/types';
 
 /** Temporary salary-planning data kept only in guest-mode React memory. */
 export interface SalaryProfileDraft {
@@ -41,6 +41,8 @@ interface GuestModeContextType {
   guestHoldings: StockHolding[];
   /** Appends a new guest transaction with a temporary random client ID */
   addGuestTransaction: (tx: Omit<Transaction, 'id'>) => Transaction;
+  /** Updates a guest transaction */
+  updateGuestTransaction: (id: string, updates: Partial<Transaction>) => void;
   /** Removes a guest transaction by ID */
   deleteGuestTransaction: (id: string) => void;
   /** Clears all guest transactions */
@@ -48,10 +50,16 @@ interface GuestModeContextType {
   /** Guest accounts and internal transfers, stored only in browser memory. */
   guestAccounts: Account[];
   guestTransfers: AccountTransfer[];
+  guestAdjustments: BalanceAdjustment[];
   addGuestAccount: (account: Omit<Account, 'id'>) => Account;
   renameGuestAccount: (id: string, name: string) => void;
   deleteGuestAccount: (id: string) => void;
   addGuestTransfer: (transfer: Omit<AccountTransfer, 'id'>) => AccountTransfer;
+  updateGuestTransfer: (id: string, updates: Partial<AccountTransfer>) => void;
+  deleteGuestTransfer: (id: string) => void;
+  addGuestAdjustment: (adj: Omit<BalanceAdjustment, 'id'>) => BalanceAdjustment;
+  updateGuestAdjustment: (id: string, updates: Partial<BalanceAdjustment>) => void;
+  deleteGuestAdjustment: (id: string) => void;
   /** Appends a new guest NEPSE stock holding with a temporary random client ID */
   addGuestHolding: (holding: Omit<StockHolding, 'id'>) => StockHolding;
   /** Updates the market price for an existing in-memory holding */
@@ -81,6 +89,7 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   const [guestTransactions, setGuestTransactions] = useState<Transaction[]>([]);
   const [guestAccounts, setGuestAccounts] = useState<Account[]>([]);
   const [guestTransfers, setGuestTransfers] = useState<AccountTransfer[]>([]);
+  const [guestAdjustments, setGuestAdjustments] = useState<BalanceAdjustment[]>([]);
   const [guestHoldings, setGuestHoldings] = useState<StockHolding[]>([]);
   const [guestSalaryProfile, setGuestSalaryProfile] = useState<SalaryProfileDraft | null>(null);
   const [guestSavingsGoals, setGuestSavingsGoals] = useState<SavingsGoalDraft[]>([]);
@@ -96,6 +105,15 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
     };
     setGuestTransactions((prev) => [newTx, ...prev]);
     return newTx;
+  };
+
+  /**
+   * Updates an existing guest transaction.
+   */
+  const updateGuestTransaction = (id: string, updates: Partial<Transaction>) => {
+    setGuestTransactions((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
+    );
   };
 
   /**
@@ -130,6 +148,36 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
     const newTransfer = { ...transfer, id: `guest-transfer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` };
     setGuestTransfers((previous) => [newTransfer, ...previous]);
     return newTransfer;
+  };
+
+  const updateGuestTransfer = (id: string, updates: Partial<AccountTransfer>) => {
+    setGuestTransfers((previous) =>
+      previous.map((t) => (t.id === id ? { ...t, ...updates } : t))
+    );
+  };
+
+  const deleteGuestTransfer = (id: string) => {
+    setGuestTransfers((previous) => previous.filter((t) => t.id !== id));
+  };
+
+  const addGuestAdjustment = (adj: Omit<BalanceAdjustment, 'id'>): BalanceAdjustment => {
+    const newAdjustment = {
+      ...adj,
+      id: `guest-adj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setGuestAdjustments((previous) => [newAdjustment, ...previous]);
+    return newAdjustment;
+  };
+
+  const updateGuestAdjustment = (id: string, updates: Partial<BalanceAdjustment>) => {
+    setGuestAdjustments((previous) =>
+      previous.map((a) => (a.id === id ? { ...a, ...updates } : a))
+    );
+  };
+
+  const deleteGuestAdjustment = (id: string) => {
+    setGuestAdjustments((previous) => previous.filter((a) => a.id !== id));
   };
 
   /**
@@ -179,14 +227,21 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         guestTransactions,
         guestHoldings,
         addGuestTransaction,
+        updateGuestTransaction,
         deleteGuestTransaction,
         clearGuestTransactions,
         guestAccounts,
         guestTransfers,
+        guestAdjustments,
         addGuestAccount,
         renameGuestAccount,
         deleteGuestAccount,
         addGuestTransfer,
+        updateGuestTransfer,
+        deleteGuestTransfer,
+        addGuestAdjustment,
+        updateGuestAdjustment,
+        deleteGuestAdjustment,
         addGuestHolding,
         updateGuestHoldingPrice,
         deleteGuestHolding,
