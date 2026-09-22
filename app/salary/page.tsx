@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { NEPAL_INDIVIDUAL_TAX_BRACKETS, NEPAL_TAX_FISCAL_YEAR } from '@/lib/config/nepalTax';
+import { formatNepaliCurrency, formatNepaliNumber } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
+import { LedgerRow } from '@/components/LedgerRow';
 import { SavingsGoalDraft, SalaryProfileDraft, useGuestMode } from '@/context/GuestModeContext';
 
 interface ProfileRow { monthly_salary: number | string; monthly_allowances: number | string; monthly_deductions: number | string; expected_monthly_expense: number | string; savings_target_amount: number | string | null; savings_target_percentage: number | string | null; }
@@ -13,7 +15,6 @@ interface TaxLine { label: string; taxableAmount: number; rate: number; tax: num
 const EMPTY_PROFILE: SalaryProfileDraft = { monthlySalary: 0, monthlyAllowances: 0, monthlyDeductions: 0, expectedMonthlyExpense: 0, savingsTargetAmount: null, savingsTargetPercentage: null };
 const numberOrZero = (value: string) => Math.max(0, Number(value) || 0);
 const optionalNumber = (value: string) => value.trim() === '' ? null : numberOrZero(value);
-const formatNpr = (amount: number) => new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR', maximumFractionDigits: 0 }).format(amount);
 const rowToProfile = (row: ProfileRow): SalaryProfileDraft => ({ monthlySalary: Number(row.monthly_salary), monthlyAllowances: Number(row.monthly_allowances), monthlyDeductions: Number(row.monthly_deductions), expectedMonthlyExpense: Number(row.expected_monthly_expense), savingsTargetAmount: row.savings_target_amount === null ? null : Number(row.savings_target_amount), savingsTargetPercentage: row.savings_target_percentage === null ? null : Number(row.savings_target_percentage) });
 
 function calculateTax(taxableIncome: number): TaxLine[] {
@@ -69,7 +70,8 @@ export default function SalaryPage() {
   }, []);
 
   const grossMonthlyIncome = profile.monthlySalary + profile.monthlyAllowances;
-  const plannedMonthlySavings = grossMonthlyIncome - profile.monthlyDeductions - profile.expectedMonthlyExpense;
+  const incomeAfterDeductions = grossMonthlyIncome - profile.monthlyDeductions;
+  const plannedMonthlySavings = incomeAfterDeductions - profile.expectedMonthlyExpense;
   const targetSavings = profile.savingsTargetAmount ?? (profile.savingsTargetPercentage === null ? null : grossMonthlyIncome * profile.savingsTargetPercentage / 100);
   const targetDifference = targetSavings === null ? null : plannedMonthlySavings - targetSavings;
   const annualGrossIncome = grossMonthlyIncome * 12;
@@ -79,6 +81,7 @@ export default function SalaryPage() {
   const annualTax = taxLines.reduce((sum, line) => sum + line.tax, 0);
   const monthlyTax = annualTax / 12;
   const monthlyTakeHome = grossMonthlyIncome - profile.monthlyDeductions - monthlyTax;
+  const isDeficit = plannedMonthlySavings < 0;
 
   const updateProfile = <K extends keyof SalaryProfileDraft>(key: K, value: SalaryProfileDraft[K]) => { setProfile((current) => ({ ...current, [key]: value })); setMessage(null); };
   const addGoal = () => setGoals((current) => [...current, { id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: '', targetAmount: 0 }]);
@@ -118,17 +121,316 @@ export default function SalaryPage() {
     setMessage('This month’s salary was logged as an income transaction.');
   };
 
-  if (loading) return <main className="min-h-screen p-6 text-zinc-500">Loading salary plan…</main>;
-  const inputClass = 'mt-1 w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700';
-  const moneyFields: Array<[string, keyof Pick<SalaryProfileDraft, 'monthlySalary' | 'monthlyAllowances' | 'monthlyDeductions' | 'expectedMonthlyExpense'>]> = [['Monthly salary', 'monthlySalary'], ['Monthly allowances', 'monthlyAllowances'], ['Monthly deductions', 'monthlyDeductions'], ['Expected monthly expense', 'expectedMonthlyExpense']];
+  if (loading) {
+    return (
+      <main className="page bound">
+        <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>
+      </main>
+    );
+  }
 
-  return <main className="min-h-screen bg-zinc-50 p-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 md:p-10"><div className="mx-auto max-w-6xl space-y-6">
-    <header className="flex flex-col gap-3 border-b border-zinc-200 pb-5 dark:border-zinc-800 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-medium text-emerald-600">Personal planning</p><h1 className="text-3xl font-bold tracking-tight">Salary & Tax Management</h1><p className="mt-1 text-sm text-zinc-500">Plan recurring pay, spending, savings, and an estimated Nepal tax position.</p></div><Link href="/" className="text-sm font-medium text-emerald-600 hover:underline">← Back to Dashboard</Link></header>
-    {!userId && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">Guest mode: salary plans and goals stay only in memory and reset on refresh.</div>}{error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</div>}{message && <div className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</div>}
-    <div className="grid gap-6 lg:grid-cols-5"><form onSubmit={savePlan} className="space-y-6 lg:col-span-3">
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><h2 className="text-lg font-semibold">Salary & planning inputs</h2><p className="mt-1 text-sm text-zinc-500">Expected expense is your budget, separate from logged transactions.</p><div className="mt-5 grid gap-4 sm:grid-cols-2">{moneyFields.map(([label, key]) => <label key={key} className="text-sm font-medium">{label} (NPR)<input type="number" min="0" step="1" value={profile[key]} onChange={(e) => updateProfile(key, numberOrZero(e.target.value))} className={inputClass} /></label>)}<label className="text-sm font-medium">Desired monthly savings amount (NPR)<input type="number" min="0" step="1" placeholder="Optional" value={profile.savingsTargetAmount ?? ''} onChange={(e) => updateProfile('savingsTargetAmount', optionalNumber(e.target.value))} className={inputClass} /></label><label className="text-sm font-medium">Or desired savings rate (%)<input type="number" min="0" max="100" step="0.1" placeholder="Optional" value={profile.savingsTargetPercentage ?? ''} onChange={(e) => updateProfile('savingsTargetPercentage', optionalNumber(e.target.value))} className={inputClass} /></label></div></section>
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Savings goals</h2><p className="text-sm text-zinc-500">Keep it simple: a name and target amount.</p></div><button type="button" onClick={addGoal} className="rounded-lg border border-emerald-600 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400">+ Add goal</button></div><div className="mt-4 space-y-3">{goals.map((goal) => <div key={goal.id} className="grid gap-2 sm:grid-cols-[1fr_170px_auto]"><input aria-label="Goal name" value={goal.name} onChange={(e) => updateGoal(goal.id, { name: e.target.value })} placeholder="e.g. Emergency fund" className="rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" /><input aria-label="Goal target amount" type="number" min="1" value={goal.targetAmount || ''} onChange={(e) => updateGoal(goal.id, { targetAmount: numberOrZero(e.target.value) })} placeholder="Target NPR" className="rounded-lg border border-zinc-300 bg-transparent px-3 py-2 dark:border-zinc-700" /><button type="button" onClick={() => removeGoal(goal.id)} className="rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40">Remove</button></div>)}{goals.length === 0 && <p className="text-sm text-zinc-500">No goals yet. Add one to see an estimated timeline.</p>}</div></section><button type="submit" disabled={saving} className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60">{saving ? 'Saving…' : 'Save salary plan'}</button>
-    </form><aside className="space-y-6 lg:col-span-2"><section className="rounded-2xl bg-emerald-700 p-5 text-white shadow-sm"><p className="text-sm text-emerald-100">Planned monthly savings</p><p className="mt-1 text-3xl font-bold">{formatNpr(plannedMonthlySavings)}</p><p className="mt-2 text-sm text-emerald-100">{formatNpr(grossMonthlyIncome - profile.monthlyDeductions)} planned income − {formatNpr(profile.expectedMonthlyExpense)} expected expense</p>{targetSavings !== null && <p className="mt-4 rounded-lg bg-white/15 p-3 text-sm">{targetDifference !== null && targetDifference >= 0 ? `On track: ${formatNpr(targetDifference)} ${targetDifference === 0 ? 'at' : 'over'} your target.` : `Under target by ${formatNpr(Math.abs(targetDifference ?? 0))}.`}</p>}</section><section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><h2 className="text-lg font-semibold">Goal estimates</h2><div className="mt-3 space-y-3">{goals.map((goal) => <div key={goal.id} className="rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-800"><p className="font-medium">{goal.name || 'Untitled goal'} · {formatNpr(goal.targetAmount)}</p><p className="mt-1 text-zinc-600 dark:text-zinc-300">{plannedMonthlySavings > 0 && goal.targetAmount > 0 ? `At this rate, you could reach this goal in approximately ${Math.ceil(goal.targetAmount / plannedMonthlySavings)} months.` : 'Set a positive planned monthly savings amount to estimate a timeline.'}</p></div>)}</div></section><button type="button" onClick={logSalary} disabled={loggingSalary} className="w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-semibold hover:bg-zinc-100 disabled:opacity-60 dark:border-zinc-700 dark:hover:bg-zinc-800">{loggingSalary ? 'Logging…' : "Log this month’s salary as a transaction"}</button></aside></div>
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><div className="flex flex-col justify-between gap-2 sm:flex-row"><div><h2 className="text-lg font-semibold">Nepal income tax estimate</h2><p className="text-sm text-zinc-500">{NEPAL_TAX_FISCAL_YEAR} resident natural-person marginal schedule.</p></div><p className="text-sm font-medium">Estimated monthly tax: {formatNpr(monthlyTax)}</p></div><div className="mt-5 grid gap-3 sm:grid-cols-4"><div><p className="text-xs text-zinc-500">Annual gross income</p><p className="font-semibold">{formatNpr(annualGrossIncome)}</p></div><div><p className="text-xs text-zinc-500">Annual deductions</p><p className="font-semibold">{formatNpr(annualDeductions)}</p></div><div><p className="text-xs text-zinc-500">Taxable income</p><p className="font-semibold">{formatNpr(taxableIncome)}</p></div><div><p className="text-xs text-zinc-500">Est. monthly take-home</p><p className="font-semibold">{formatNpr(monthlyTakeHome)}</p></div></div><div className="mt-5 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800"><tr><th className="py-2 font-medium">Tax bracket</th><th className="py-2 font-medium">Income in bracket</th><th className="py-2 font-medium">Rate</th><th className="py-2 text-right font-medium">Estimated tax</th></tr></thead><tbody>{taxLines.length ? taxLines.map((line) => <tr key={line.label} className="border-b border-zinc-100 dark:border-zinc-800"><td className="py-2">{line.label}</td><td className="py-2">{formatNpr(line.taxableAmount)}</td><td className="py-2">{(line.rate * 100).toFixed(0)}%</td><td className="py-2 text-right">{formatNpr(line.tax)}</td></tr>) : <tr><td className="py-3 text-zinc-500" colSpan={4}>Enter income to see the bracket breakdown.</td></tr>}</tbody><tfoot><tr><td className="pt-3 font-semibold" colSpan={3}>Estimated annual income tax</td><td className="pt-3 text-right font-semibold">{formatNpr(annualTax)}</td></tr></tfoot></table></div><p className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">This is an estimate for personal planning purposes only, not official tax advice. Consult a tax professional or the Inland Revenue Department for official figures.</p></section>
-  </div></main>;
+  const moneyFields: Array<[string, keyof Pick<SalaryProfileDraft, 'monthlySalary' | 'monthlyAllowances' | 'monthlyDeductions' | 'expectedMonthlyExpense'>]> = [
+    ['Monthly salary', 'monthlySalary'],
+    ['Monthly allowances', 'monthlyAllowances'],
+    ['Monthly deductions', 'monthlyDeductions'],
+    ['Expected monthly expense', 'expectedMonthlyExpense'],
+  ];
+
+  return (
+    <main className="page bound">
+      <span className="binding-label">SALARY</span>
+      <div className="space-y-6">
+        <header className="masthead">
+          <div>
+            <h1>Salary &amp; tax</h1>
+            <p className="masthead-note">
+              Plan recurring pay, budget expected spending, set savings goals, and estimate this
+              year&rsquo;s Nepal income tax position.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="stamp">{NEPAL_TAX_FISCAL_YEAR}</span>
+            <Link href="/" className="link-ink">
+              &larr; Dashboard
+            </Link>
+          </div>
+        </header>
+
+        {!userId && (
+          <div className="note note-warn">
+            <span>Guest mode: salary plans and goals stay only in memory and reset on refresh.</span>
+          </div>
+        )}
+        {error && <div className="note note-loss">{error}</div>}
+        {message && <div className="note note-gain">{message}</div>}
+
+        <div className="grid gap-4 lg:grid-cols-5">
+          <form onSubmit={savePlan} className="space-y-4 lg:col-span-3">
+            <section className="sheet">
+              <div className="sheet-hd">
+                <h2 className="sheet-title">Salary &amp; planning inputs</h2>
+              </div>
+              <div className="sheet-bd">
+                <p className="sheet-sub mb-3">
+                  Expected expense is your budget, separate from logged transactions.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {moneyFields.map(([label, key]) => (
+                    <div key={key}>
+                      <label className="field-lbl" htmlFor={key}>
+                        {label}
+                      </label>
+                      <div className="field-wrap">
+                        <span className="prefix">Rs</span>
+                        <input
+                          id={key}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={profile[key]}
+                          onChange={(e) => updateProfile(key, numberOrZero(e.target.value))}
+                          className="field field-num"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <div>
+                    <label className="field-lbl" htmlFor="savingsTargetAmount">
+                      Desired monthly savings amount
+                    </label>
+                    <div className="field-wrap">
+                      <span className="prefix">Rs</span>
+                      <input
+                        id="savingsTargetAmount"
+                        type="number"
+                        min="0"
+                        step="1"
+                        placeholder="Optional"
+                        value={profile.savingsTargetAmount ?? ''}
+                        onChange={(e) => updateProfile('savingsTargetAmount', optionalNumber(e.target.value))}
+                        className="field field-num"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="field-lbl" htmlFor="savingsTargetPercentage">
+                      Or desired savings rate (%)
+                    </label>
+                    <input
+                      id="savingsTargetPercentage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      placeholder="Optional"
+                      value={profile.savingsTargetPercentage ?? ''}
+                      onChange={(e) => updateProfile('savingsTargetPercentage', optionalNumber(e.target.value))}
+                      className="field field-num"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="sheet">
+              <div className="sheet-hd">
+                <div>
+                  <h2 className="sheet-title">Savings goals</h2>
+                  <p className="sheet-sub">A name and a target amount.</p>
+                </div>
+                <button type="button" onClick={addGoal} className="btn btn-ink btn-sm">
+                  + Add goal
+                </button>
+              </div>
+              <div className="sheet-bd">
+                {goals.length === 0 ? (
+                  <div className="empty">
+                    <p className="empty-mark">[ NO GOALS ]</p>
+                    <p className="empty-title">Nothing set aside for, yet</p>
+                    <p className="empty-body">
+                      Add a goal to see an estimated timeline against your planned savings.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {goals.map((goal) => (
+                      <div
+                        key={goal.id}
+                        className="grid gap-2 border-b border-rule pb-2.5 last:border-b-0 last:pb-0 sm:grid-cols-[1fr_170px_auto] sm:items-center"
+                      >
+                        <input
+                          aria-label="Goal name"
+                          value={goal.name}
+                          onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
+                          placeholder="e.g. Emergency fund"
+                          className="field"
+                        />
+                        <div className="field-wrap">
+                          <span className="prefix">Rs</span>
+                          <input
+                            aria-label="Goal target amount"
+                            type="number"
+                            min="1"
+                            value={goal.targetAmount || ''}
+                            onChange={(e) => updateGoal(goal.id, { targetAmount: numberOrZero(e.target.value) })}
+                            placeholder="Target"
+                            className="field field-num"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeGoal(goal.id)}
+                          className="justify-self-start text-[13px] text-loss hover:underline sm:justify-self-end"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <button type="submit" disabled={saving} className="btn btn-ink btn-block">
+              {saving ? 'Saving…' : 'Save salary plan'}
+            </button>
+          </form>
+
+          <aside className="space-y-4 lg:col-span-2">
+            <section className="sheet">
+              <div className="sheet-hd">
+                <h2 className="sheet-title">
+                  Planned position
+                </h2>
+              </div>
+              <div className="sheet-bd">
+                <div className="ledger">
+                  <LedgerRow label="Income after deductions" amount={incomeAfterDeductions} unit="Rs" tone="mute" />
+                  <LedgerRow label="Expected expense" amount={profile.expectedMonthlyExpense} unit="Rs" tone="loss" />
+                  <LedgerRow
+                    label={isDeficit ? 'Shortfall' : 'Planned savings'}
+                    amount={plannedMonthlySavings}
+                    unit="Rs"
+                    tone={isDeficit ? 'loss' : 'gain'}
+                    total
+                    large
+                  />
+                </div>
+                {targetSavings !== null && (
+                  <div className={`note ${targetDifference !== null && targetDifference >= 0 ? 'note-gain' : 'note-loss'} mt-3`}>
+                    {targetDifference !== null && targetDifference >= 0
+                      ? `On track: ${formatNepaliCurrency(targetDifference)} ${targetDifference === 0 ? 'at' : 'over'} your target.`
+                      : `Under target by ${formatNepaliCurrency(Math.abs(targetDifference ?? 0))}.`}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="sheet">
+              <div className="sheet-hd">
+                <h2 className="sheet-title">Goal estimates</h2>
+              </div>
+              <div className="sheet-bd">
+                {goals.length === 0 ? (
+                  <p className="fig fig-sm fig-mute">Add a goal to see an estimate.</p>
+                ) : (
+                  <div className="ledger">
+                    {goals.map((goal) => (
+                      <div key={goal.id} className="ledger-row">
+                        <span className="lbl">{goal.name || 'Untitled goal'}</span>
+                        <span className="leader" aria-hidden="true" />
+                        <span className="fig fig-md">{formatNepaliCurrency(goal.targetAmount)}</span>
+                        <p className="ledger-note">
+                          {plannedMonthlySavings > 0 && goal.targetAmount > 0
+                            ? `At this rate, about ${Math.ceil(goal.targetAmount / plannedMonthlySavings)} months to reach.`
+                            : 'Set a positive planned monthly savings amount to estimate a timeline.'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <button type="button" onClick={logSalary} disabled={loggingSalary} className="btn btn-block">
+              {loggingSalary ? 'Logging…' : 'Log this month’s salary as a transaction'}
+            </button>
+          </aside>
+        </div>
+
+        <section className="sheet">
+          <div className="sheet-hd">
+            <div>
+              <h2 className="sheet-title">Nepal income tax estimate</h2>
+              <p className="sheet-sub">{NEPAL_TAX_FISCAL_YEAR} resident natural-person marginal schedule.</p>
+            </div>
+            <span className="whitespace-nowrap">
+              <span className="fig fig-md">{formatNepaliCurrency(monthlyTax)}</span>
+              <span className="ml-1.5 text-[11px] text-ink-faint">est. monthly tax</span>
+            </span>
+          </div>
+          <div className="sheet-bd">
+            <div className="ledger mb-4">
+              <LedgerRow label="Annual gross income" amount={annualGrossIncome} unit="Rs" tone="mute" />
+              <LedgerRow label="Annual deductions" amount={annualDeductions} unit="Rs" tone="mute" />
+              <LedgerRow label="Taxable income" amount={taxableIncome} unit="Rs" />
+              <LedgerRow label="Est. monthly take-home" amount={monthlyTakeHome} unit="Rs" tone="gain" total large />
+            </div>
+
+            <div className="scroll-x">
+              <table className="floor min-w-[36rem]">
+                <thead>
+                  <tr>
+                    <th scope="col">Tax bracket</th>
+                    <th scope="col" className="text-right">
+                      Income in bracket
+                    </th>
+                    <th scope="col" className="text-right">
+                      Rate
+                    </th>
+                    <th scope="col" className="text-right">
+                      Estimated tax
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {taxLines.length ? (
+                    taxLines.map((line) => (
+                      <tr key={line.label}>
+                        <td>{line.label}</td>
+                        <td className="num fig-mute">{formatNepaliNumber(line.taxableAmount)}</td>
+                        <td className="num">{(line.rate * 100).toFixed(0)}%</td>
+                        <td className="num">{formatNepaliNumber(line.tax)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="text-ink-soft">
+                        Enter income to see the bracket breakdown.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3} className="border-t-2 border-rule-strong pt-2.5 font-medium text-ink">
+                      Estimated annual income tax
+                    </td>
+                    <td className="num border-t-2 border-rule-strong pt-2.5 font-semibold">
+                      {formatNepaliNumber(annualTax)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <p className="note note-warn mt-4">
+              This is an estimate for personal planning purposes only, not official tax advice.
+              Consult a tax professional or the Inland Revenue Department for official figures.
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
 }

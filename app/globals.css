@@ -1,26 +1,863 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ==========================================================================
+   Finance-Dealer design language — the bound account book.
+   See DESIGN.md for the reasoning behind every value in this file.
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+   Revision history:
+   1. First pass leaned on a saturated crimson as a structural chrome color
+      plus graphic flourishes (double rules, a solid binding edge, a hard
+      offset shadow). Read as harsh.
+   2. Second pass went fully monochrome — no accent at all, everything
+      carried by weight and contrast. Read as flat.
+   3. This pass: two deliberate named accents, chosen specifically so
+      neither one sits near the gain/loss hues (green/rust) and gets
+      confused for a data signal. Indigo (`--khata`) carries brand/primary/
+      active states. Marigold (`--sayapatri`) carries secondary emphasis —
+      locks, guest mode, reconciliation. Both are used sparingly: chrome,
+      borders, and secondary buttons stay neutral so the accents still read
+      as intentional rather than decorative.
+
+   Colour is defined once here as semantic tokens and flipped wholesale under
+   prefers-color-scheme. Components reference the tokens, never raw hex, so
+   dark mode is correct by construction rather than by remembering `dark:`.
+   ========================================================================== */
+
+:root {
+  /* Surface — quiet neutral paper, not tinted */
+  --paper: #f6f5f3;
+  --sheet: #fcfbf9;
+  --sheet-alt: #edebe6;
+
+  /* Ink — the neutral scale for text, borders, and structural chrome */
+  --ink: #232323;
+  --ink-soft: #625f58;
+  --ink-faint: #96938a;
+
+  /* Ruling */
+  --rule: #e4e2dd;
+  --rule-strong: #d3cfc7;
+
+  /* Indigo — brand, primary actions, active/selected states, links. */
+  --khata: #4b4f96;
+  --khata-hover: #3c3f7a;
+  --khata-wash: #e9e9f5;
+  --on-khata: var(--paper);
+
+  /* Marigold — secondary emphasis: locks, guest mode, reconciliation. */
+  --sayapatri: #b9860f;
+  --sayapatri-wash: #f7ecd6;
+
+  /* Board signal. Deliberately kept clear of both accents above. */
+  --gain: #4b7a5a;
+  --gain-wash: #eaf0ea;
+  --loss: #a85a4e;
+  --loss-wash: #f3e9e6;
+
+  --focus: var(--khata);
+  --radius: 4px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #18181a;
+    --sheet: #1e1e20;
+    --sheet-alt: #26262a;
+
+    --ink: #e9e9e7;
+    --ink-soft: #a6a39b;
+    --ink-faint: #726f67;
+
+    --rule: #2c2c2e;
+    --rule-strong: #38383b;
+
+    --khata: #9598d9;
+    --khata-hover: #aeb1e3;
+    --khata-wash: #23253f;
+    --on-khata: var(--paper);
+
+    --sayapatri: #e0a83c;
+    --sayapatri-wash: #332506;
+
+    --gain: #6fa37d;
+    --gain-wash: #1b2620;
+    --loss: #c4796b;
+    --loss-wash: #2b1e1a;
+
+    --focus: var(--khata);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-sheet-alt: var(--sheet-alt);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-khata: var(--khata);
+  --color-khata-wash: var(--khata-wash);
+  --color-sayapatri: var(--sayapatri);
+  --color-sayapatri-wash: var(--sayapatri-wash);
+  --color-gain: var(--gain);
+  --color-gain-wash: var(--gain-wash);
+  --color-loss: var(--loss);
+  --color-loss-wash: var(--loss-wash);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-plex-mono);
+  --font-display: var(--font-geist-sans);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* A small, quiet radius everywhere — soft enough to not read as decoration,
+     present enough to not read as a spreadsheet. */
+  button,
+  input,
+  select,
+  textarea {
+    border-radius: var(--radius);
+    font: inherit;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+
+  ::selection {
+    background: var(--khata);
+    color: var(--on-khata);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--rule-strong);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-faint);
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  /* ---- Page shell ------------------------------------------------------ */
+
+  .page {
+    width: 100%;
+    max-width: 88rem;
+    margin-inline: auto;
+    padding: 1rem 0.875rem 3rem;
+  }
+  @media (min-width: 640px) {
+    .page {
+      padding: 1.5rem 1.5rem 4rem;
+    }
+  }
+
+  /* The binding-edge spine read as too heavy a graphic device in practice —
+     retired. `.bound`/`.binding-label` are kept as harmless no-ops so no
+     page markup needs to change. */
+  .bound {
+    position: relative;
+  }
+  .binding-label {
+    display: none;
+  }
+
+  /* ---- Masthead -------------------------------------------------------- */
+
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  @media (min-width: 640px) {
+    .masthead {
+      flex-direction: row;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1.5rem;
+    }
+  }
+
+  .masthead h1,
+  .page-title {
+    font-family: var(--font-geist-sans), ui-sans-serif, sans-serif;
+    font-weight: 600;
+    font-size: 1.625rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  @media (min-width: 640px) {
+    .masthead h1,
+    .page-title {
+      font-size: 1.875rem;
+    }
+  }
+
+  .masthead-note {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 46rem;
+  }
+
+  /* Fiscal period stamp — Nepal's year, not the Gregorian one. */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    padding: 0.3125rem 0.5rem;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .stamp .hair {
+    width: 1px;
+    align-self: stretch;
+    background: var(--rule-strong);
+  }
+
+  /* ---- Sheets ---------------------------------------------------------- */
+
+  .sheet {
+    background: var(--sheet);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+  }
+
+  .sheet-hd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--sheet-alt);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .sheet-hd h2,
+  .sheet-hd h3,
+  .sheet-title {
+    font-family: var(--font-geist-sans), ui-sans-serif, sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+
+  .sheet-sub {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
+  .sheet-bd {
+    padding: 0.875rem;
+  }
+
+  .sheet-ft {
+    padding: 0.625rem 0.875rem;
+    border-top: 1px solid var(--rule);
+    background: var(--sheet-alt);
+    border-radius: 0 0 var(--radius) var(--radius);
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+  }
+
+  /* ---- Ledger rows ----------------------------------------------------- */
+
+  .ledger {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ledger-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .ledger-row:last-child {
+    border-bottom: 0;
+  }
+
+  /* Totals close with a slightly heavier single rule, not a double one. */
+  .ledger-row.is-total {
+    border-top: 2px solid var(--rule-strong);
+    border-bottom: 0;
+    margin-top: 0.25rem;
+    padding-top: 0.625rem;
+  }
+
+  .ledger-row .lbl {
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+  }
+  .ledger-row.is-total .lbl {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  /* Dotted leader, as printed. Decorative — hidden from assistive tech. */
+  .leader {
+    align-self: center;
+    height: 1px;
+    min-width: 1rem;
+    background-image: linear-gradient(
+      90deg,
+      var(--rule-strong) 0 2px,
+      transparent 2px 5px
+    );
+    background-size: 5px 1px;
+    background-repeat: repeat-x;
+    opacity: 0.8;
+  }
+
+  .ledger-note {
+    grid-column: 1 / -1;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--ink-faint);
+    margin-top: -0.125rem;
+  }
+
+  /* ---- Figures --------------------------------------------------------- */
+
+  .fig {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    color: var(--ink);
+  }
+  .fig-sm {
+    font-size: 0.75rem;
+  }
+  .fig-md {
+    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+  .fig-lg {
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+  @media (min-width: 640px) {
+    .fig-lg {
+      font-size: 1.625rem;
+    }
+  }
+  .fig-gain {
+    color: var(--gain);
+  }
+  .fig-loss {
+    color: var(--loss);
+  }
+  .fig-mute {
+    color: var(--ink-soft);
+  }
+
+  /* The "Rs" that precedes an amount is a unit, not a number. */
+  .unit {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--ink-faint);
+    margin-right: 0.1875rem;
+  }
+
+  /* ---- NEPSE ticker slot ----------------------------------------------- */
+
+  .ticker {
+    display: inline-block;
+    min-width: 5.25rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet-alt);
+    padding: 0.125rem 0.375rem;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: var(--ink);
+  }
+
+  /* ---- Floor sheet table ----------------------------------------------- */
+
+  .floor {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+  }
+
+  .floor thead th {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--rule-strong);
+    background: var(--sheet-alt);
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+
+  .floor tbody td {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.8125rem;
+    vertical-align: top;
+  }
+
+  .floor tbody tr:hover {
+    background: var(--sheet-alt);
+  }
+
+  .floor tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .floor .num {
+    text-align: right;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Hairline weight bar. A rule of varying length, not a rounded pill. */
+  .weightbar {
+    display: block;
+    height: 3px;
+    width: 3rem;
+    background: var(--rule);
+    margin-left: auto;
+    margin-top: 0.25rem;
+  }
+  .weightbar > span {
+    display: block;
+    height: 100%;
+    background: var(--khata);
+  }
+
+  /* ---- Tags ------------------------------------------------------------ */
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet-alt);
+    padding: 0.0625rem 0.375rem;
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .tag-gain {
+    border-color: color-mix(in srgb, var(--gain) 45%, transparent);
+    background: var(--gain-wash);
+    color: var(--gain);
+  }
+  .tag-loss {
+    border-color: color-mix(in srgb, var(--loss) 45%, transparent);
+    background: var(--loss-wash);
+    color: var(--loss);
+  }
+  .tag-warn {
+    border-color: color-mix(in srgb, var(--sayapatri) 45%, transparent);
+    background: var(--sayapatri-wash);
+    color: var(--sayapatri);
+    font-weight: 500;
+  }
+  .tag-khata {
+    border-color: color-mix(in srgb, var(--khata) 45%, transparent);
+    background: var(--khata-wash);
+    color: var(--khata);
+    font-weight: 500;
+  }
+
+  /* ---- Buttons --------------------------------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border: 1px solid var(--rule-strong);
+    background: transparent;
+    color: var(--ink);
+    padding: 0.4375rem 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    transition: background-color 120ms ease, color 120ms ease,
+      border-color 120ms ease;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--sheet-alt);
+    border-color: var(--ink-faint);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Primary action: an outline that inverts on hover, not a solid fill. */
+  .btn-ink {
+    border-color: var(--khata);
+    background: transparent;
+    color: var(--khata);
+  }
+  .btn-ink:hover:not(:disabled) {
+    background: var(--khata);
+    color: var(--on-khata);
+  }
+
+  /* Secondary emphasis — locks, guest mode, reconciliation. */
+  .btn-warn {
+    border-color: var(--sayapatri);
+    background: transparent;
+    color: var(--sayapatri);
+  }
+  .btn-warn:hover:not(:disabled) {
+    background: var(--sayapatri);
+    color: var(--on-khata);
+  }
+
+  .btn-danger {
+    border-color: var(--loss);
+    background: transparent;
+    color: var(--loss);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--loss);
+    color: var(--on-khata);
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .btn-block {
+    width: 100%;
+  }
+
+  /* A text action, in the brand accent. */
+  .link-ink {
+    color: var(--khata);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-underline-offset: 3px;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--khata) 40%, transparent);
+    transition: text-decoration-color 120ms ease;
+  }
+  .link-ink:hover {
+    text-decoration-color: var(--khata);
+  }
+
+  /* ---- Segmented control ------------------------------------------------ */
+
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet-alt);
+    overflow: hidden;
+  }
+  .seg > button {
+    padding: 0.375rem 0.6875rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    border-right: 1px solid var(--rule-strong);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .seg > button:last-child {
+    border-right: 0;
+  }
+  .seg > button:hover {
+    color: var(--ink);
+  }
+  .seg > button[aria-pressed="true"] {
+    background: var(--khata);
+    color: var(--on-khata);
+  }
+
+  /* ---- Fields ---------------------------------------------------------- */
+
+  .field-lbl {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-bottom: 0.25rem;
+  }
+
+  .field {
+    width: 100%;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet);
+    color: var(--ink);
+    padding: 0.4375rem 0.625rem;
+    /* 16px on small screens so iOS does not zoom the viewport on focus. */
+    font-size: 1rem;
+    line-height: 1.4;
+    transition: border-color 120ms ease;
+  }
+  @media (min-width: 640px) {
+    .field {
+      font-size: 0.8125rem;
+    }
+  }
+  .field::placeholder {
+    color: var(--ink-faint);
+  }
+  .field:hover:not(:disabled) {
+    border-color: var(--ink-faint);
+  }
+  .field:disabled {
+    opacity: 0.55;
+    background: var(--sheet-alt);
+  }
+  .field-num {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .field-hint {
+    margin-top: 0.25rem;
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--ink-faint);
+  }
+
+  /* Amount field with a currency gutter printed into it. */
+  .field-wrap {
+    position: relative;
+  }
+  .field-wrap > .field {
+    padding-left: 2.75rem;
+  }
+  .field-wrap > .prefix {
+    position: absolute;
+    inset-block: 1px;
+    left: 1px;
+    width: 2.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--rule);
+    background: var(--sheet-alt);
+    border-radius: var(--radius) 0 0 var(--radius);
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--ink-faint);
+    pointer-events: none;
+  }
+
+  /* ---- Notices --------------------------------------------------------- */
+
+  .note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid var(--rule-strong);
+    border-left-width: 3px;
+    border-radius: var(--radius);
+    background: var(--sheet);
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  /* Guest mode, stale rates, reconciliation — the marigold secondary accent. */
+  .note-warn {
+    border-color: color-mix(in srgb, var(--sayapatri) 35%, transparent);
+    border-left-color: var(--sayapatri);
+    background: var(--sayapatri-wash);
+  }
+  .note-gain {
+    border-color: color-mix(in srgb, var(--gain) 35%, transparent);
+    border-left-color: var(--gain);
+    background: var(--gain-wash);
+  }
+  .note-loss {
+    border-color: color-mix(in srgb, var(--loss) 35%, transparent);
+    border-left-color: var(--loss);
+    background: var(--loss-wash);
+  }
+
+  /* ---- Empty states ---------------------------------------------------- */
+
+  .empty {
+    border: 1px dashed var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet-alt);
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  .empty-mark {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-faint);
+  }
+  .empty-title {
+    margin-top: 0.5rem;
+    font-family: var(--font-geist-sans), sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--ink);
+  }
+  .empty-body {
+    margin: 0.25rem auto 0;
+    max-width: 28rem;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  /* ---- Modals ---------------------------------------------------------- */
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--ink) 45%, transparent);
+  }
+
+  /* A soft, quiet shadow — not a graphic offset. */
+  .dialog {
+    width: 100%;
+    max-width: 30rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet);
+    box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--ink) 20%, transparent);
+    margin-block: auto;
+  }
+  .dialog-hd {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--sheet-alt);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .dialog-hd h3 {
+    font-family: var(--font-geist-sans), sans-serif;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.15;
+    color: var(--ink);
+  }
+  .dialog-bd {
+    padding: 1rem;
+  }
+  .dialog-ft {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--rule);
+    background: var(--sheet-alt);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  /* ---- Utilities ------------------------------------------------------- */
+
+  .scroll-x {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .no-bar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-bar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Keep the one true animation honest: a live-price pulse that actually means
+   something is live. Nothing else in the app animates on entry. */
+@keyframes tick {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+.pulse-live {
+  animation: tick 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

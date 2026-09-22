@@ -103,6 +103,26 @@ export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: 
 }
 
 /**
+ * Formats a number using the South Asian lakh/crore digit grouping used across
+ * Nepal (2,2,3 from the right): 1500000 becomes "15,00,000", not "1,500,000".
+ *
+ * Note: the `en-NP` ICU locale groups in Western thousands, so `en-IN` is used
+ * here purely for its grouping rule. Both render Latin digits and the same
+ * comma separator, so the only difference is where the commas fall.
+ *
+ * @param amount - The numeric value to format.
+ * @param maximumFractionDigits - Decimal places to keep (default: 2).
+ * @returns Grouped number string without a currency prefix (e.g. "15,00,000").
+ */
+export function formatNepaliNumber(amount: number, maximumFractionDigits: number = 2): string {
+  const num = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  }).format(num);
+}
+
+/**
  * Formats a numerical amount into Nepali Rupees (NPR) string using standard South Asian numbering convention.
  *
  * @param amount - The numeric monetary value to format.
@@ -112,15 +132,33 @@ export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: 
 export function formatNepaliCurrency(amount: number, prefix: string = 'Rs. '): string {
   const num = Number(amount) || 0;
   const isNegative = num < 0;
-  const absFormatted = new Intl.NumberFormat('en-NP', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(Math.abs(num));
+  const absFormatted = formatNepaliNumber(Math.abs(num));
 
   if (isNegative) {
     return `-${prefix}${absFormatted}`;
   }
   return `${prefix}${absFormatted}`;
+}
+
+/**
+ * Abbreviates an amount for dense contexts such as chart axes, using Nepali
+ * scale words (lakh and crore) rather than the Western thousand/million.
+ *
+ * @param amount - The numeric value to abbreviate.
+ * @returns Compact string, e.g. "2.4Cr", "8.5L", or "45,000".
+ */
+export function formatNepaliCompact(amount: number): string {
+  const num = Number(amount) || 0;
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+
+  if (abs >= 10000000) {
+    return `${sign}${(abs / 10000000).toFixed(abs >= 100000000 ? 0 : 1)}Cr`;
+  }
+  if (abs >= 100000) {
+    return `${sign}${(abs / 100000).toFixed(abs >= 1000000 ? 0 : 1)}L`;
+  }
+  return `${sign}${formatNepaliNumber(abs, 0)}`;
 }
 
 /**

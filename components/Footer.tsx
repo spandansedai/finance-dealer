@@ -1,151 +1,107 @@
 /**
  * @file components/Footer.tsx
  * @description Global footer providing structured site navigation, legal links,
- * copyright notice, version indicators, and compliance disclaimers.
+ * copyright notice, version indicator, and compliance disclaimers.
  */
 
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
+import { Logomark } from '@/components/Logomark';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="w-full border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 mt-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
+    <footer className="mt-auto w-full border-t border-rule bg-sheet-alt text-ink-soft">
+      <div className="mx-auto max-w-[88rem] px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-10">
           {/* Brand & Mission Column */}
-          <div className="lg:col-span-2 space-y-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-black text-sm shadow-xs">
-                FD
-              </span>
-              <span className="font-bold">FinanceDealer</span>
-              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
-                v1.3
-              </span>
+          <div className="space-y-3 lg:col-span-2">
+            <Link href="/" className="flex items-center gap-2.5 text-ink">
+              <Logomark size={24} />
+              <span className="font-display text-base font-semibold">FinanceDealer</span>
+              <span className="tag">v1.3</span>
             </Link>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-sm">
-              Nepali Personal Finance &amp; NEPSE Operating System. Track cash flow in NPR, compute monthly surplus, analyze stock holdings, and gain factual financial insights.
+            <p className="max-w-sm text-xs leading-relaxed text-ink-soft">
+              Nepali personal finance and NEPSE operating system. Passbook accounting, live
+              USD/NPR conversion, tax planning, and equity portfolio management.
             </p>
-            <div className="text-xs text-zinc-400 dark:text-zinc-500">
-              Made for investors and earners in Nepal 🇳🇵
-            </div>
+            <p className="text-[11px] font-mono text-ink-faint">
+              Made for earners and investors in Nepal.
+            </p>
           </div>
 
           {/* Features / App Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-200">
-              Platform
-            </h4>
-            <ul className="space-y-2 text-xs sm:text-sm">
+          <div className="space-y-2.5">
+            <h4 className="font-display text-sm font-semibold text-ink">Platform ledger</h4>
+            <ul className="space-y-1.5 text-xs">
               <li>
-                <Link
-                  href="/"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Dashboard
+                <Link href="/" className="transition-colors hover:text-khata">
+                  Dashboard overview
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/expenses"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Expenses &amp; Income
+                <Link href="/expenses" className="transition-colors hover:text-khata">
+                  Passbook &amp; accounts
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/portfolio"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  NEPSE Portfolio
+                <Link href="/portfolio" className="transition-colors hover:text-khata">
+                  NEPSE floor sheet
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/salary"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Salary &amp; Tax Planner
+                <Link href="/salary" className="transition-colors hover:text-khata">
+                  Salary &amp; tax planner
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/settings"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Settings &amp; Email Reports
+                <Link href="/settings" className="transition-colors hover:text-khata">
+                  Settings &amp; audit logs
                 </Link>
               </li>
             </ul>
           </div>
 
           {/* Legal & Compliance */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-200">
-              Legal &amp; Policy
-            </h4>
-            <ul className="space-y-2 text-xs sm:text-sm">
+          <div className="space-y-2.5">
+            <h4 className="font-display text-sm font-semibold text-ink">Policy &amp; terms</h4>
+            <ul className="space-y-1.5 text-xs">
               <li>
-                <Link
-                  href="/privacy"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Privacy Policy
+                <Link href="/privacy" className="transition-colors hover:text-khata">
+                  Privacy policy
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/terms"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Terms &amp; Conditions
+                <Link href="/terms" className="transition-colors hover:text-khata">
+                  Terms &amp; conditions
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/disclaimer"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Financial Disclaimer
+                <Link href="/disclaimer" className="transition-colors hover:text-khata">
+                  Financial disclaimer
                 </Link>
               </li>
             </ul>
           </div>
 
           {/* Company & Support */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-200">
-              Support &amp; Info
-            </h4>
-            <ul className="space-y-2 text-xs sm:text-sm">
+          <div className="space-y-2.5">
+            <h4 className="font-display text-sm font-semibold text-ink">Support</h4>
+            <ul className="space-y-1.5 text-xs">
               <li>
-                <Link
-                  href="/about"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  About FinanceDealer
+                <Link href="/faq" className="transition-colors hover:text-khata">
+                  Frequently asked questions
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/contact"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Contact &amp; Feedback
+                <Link href="/contact" className="transition-colors hover:text-khata">
+                  Contact &amp; feedback
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/login"
-                  className="hover:text-emerald-600 dark:hover:text-emerald-400 transition"
-                >
-                  Account / Sign In
+                <Link href="/login" className="transition-colors hover:text-khata">
+                  Account / sign in
                 </Link>
               </li>
             </ul>
@@ -153,12 +109,11 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Disclaimer & Copyright Bar */}
-        <div className="mt-10 pt-6 border-t border-zinc-200 dark:border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400 dark:text-zinc-500">
-          <p>
-            &copy; {new Date().getFullYear()} FinanceDealer. All rights reserved.
-          </p>
-          <p className="text-center sm:text-right max-w-lg">
-            FinanceDealer is a calculation and personal ledger tool. Not registered with SEBON or NRB. Information is for educational and tracking purposes only.
+        <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-rule pt-5 text-[11px] text-ink-faint sm:flex-row">
+          <p className="font-mono">&copy; {new Date().getFullYear()} FinanceDealer. All records secured.</p>
+          <p className="max-w-lg text-center leading-relaxed sm:text-right">
+            FinanceDealer is a personal financial ledger and accounting calculation tool. Not
+            registered with SEBON or NRB. Information is for personal tracking purposes only.
           </p>
         </div>
       </div>

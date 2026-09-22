@@ -11,6 +11,15 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Logomark } from '@/components/Logomark';
+
+const NAV_LINKS = [
+  { href: '/', label: 'Dashboard', short: 'Dashboard' },
+  { href: '/expenses', label: 'Income & Expenses', short: 'Ledger' },
+  { href: '/salary', label: 'Salary & Tax', short: 'Salary' },
+  { href: '/portfolio', label: 'NEPSE', short: 'NEPSE' },
+  { href: '/settings', label: 'Settings', short: 'Settings' },
+];
 
 /**
  * Navbar component providing sticky top navigation, live authentication status,
@@ -41,140 +50,83 @@ export const Navbar = () => {
     router.refresh();
   };
 
-  const navLinks = [
-    { href: '/', label: 'Dashboard' },
-    { href: '/expenses', label: 'Expenses & Income' },
-    { href: '/salary', label: 'Salary' },
-    { href: '/portfolio', label: 'NEPSE Portfolio' },
-    { href: '/faq', label: 'FAQ' },
-    { href: '/settings', label: 'Settings' },
-  ];
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' || pathname === '/dashboard' : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand Logo & Desktop Nav */}
-        <div className="flex items-center gap-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50 shrink-0"
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-black text-sm shadow-sm">
-              FD
-            </span>
-            <span className="font-bold">FinanceDealer</span>
-            <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800 hidden xs:inline-block">
-              v1.3
-            </span>
-          </Link>
+    <header className="sticky top-0 z-40 w-full overflow-hidden border-b border-rule-strong bg-paper/95 backdrop-blur-sm">
+      {/* Row 1 — spine stamp, desktop tabs, auth */}
+      <div className="mx-auto flex h-14 max-w-[88rem] items-center justify-between gap-3 px-3 sm:px-6">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
+          <Logomark size={32} />
+          <span className="font-display text-lg font-semibold leading-none text-ink">
+            FinanceDealer
+          </span>
+        </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-1 text-sm font-medium">
-            {navLinks.map((link) => {
-              const isActive =
-                link.href === '/'
-                  ? pathname === '/' || pathname === '/dashboard'
-                  : pathname.startsWith(link.href);
+        {/* Desktop tabs */}
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 md:flex">
+          {NAV_LINKS.map((link) => {
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? 'page' : undefined}
+                className={`border-b-2 px-2.5 py-1.5 text-[13px] transition-colors lg:px-3 ${
+                  active
+                    ? 'border-khata font-medium text-khata'
+                    : 'border-transparent text-ink-soft hover:text-ink'
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-1.5 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-900'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Mobile Navigation Quick Bar */}
-        <div className="flex md:hidden items-center gap-1 text-xs overflow-x-auto">
-          <Link
-            href="/"
-            className={`px-1.5 py-1 rounded-md shrink-0 ${
-              pathname === '/' || pathname === '/dashboard' ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/expenses"
-            className={`px-1.5 py-1 rounded-md shrink-0 ${
-              pathname.startsWith('/expenses') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Expenses
-          </Link>
-          <Link
-            href="/portfolio"
-            className={`px-1.5 py-1 rounded-md shrink-0 ${
-              pathname.startsWith('/portfolio') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Portfolio
-          </Link>
-          <Link
-            href="/faq"
-            className={`px-1.5 py-1 rounded-md shrink-0 ${
-              pathname.startsWith('/faq') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            FAQ
-          </Link>
-          <Link
-            href="/settings"
-            className={`px-1.5 py-1 rounded-md shrink-0 ${
-              pathname.startsWith('/settings') ? 'bg-zinc-200 dark:bg-zinc-800 font-bold' : 'text-zinc-600 dark:text-zinc-400'
-            }`}
-          >
-            Settings
-          </Link>
-          {userEmail ? (
-            <button
-              onClick={handleSignOut}
-              className="px-1.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] shrink-0"
-            >
-              Sign Out
-            </button>
-          ) : (
-            <Link
-              href="/login"
-              className="px-2 py-1 rounded-md bg-emerald-600 text-white text-[11px] font-medium shrink-0"
-            >
-              Sign In
-            </Link>
-          )}
-        </div>
-
-        {/* Desktop Auth Controls */}
-        <div className="hidden md:flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+        {/* Auth */}
+        <div className="flex shrink-0 items-center gap-2">
           {userEmail ? (
             <>
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="max-w-[160px] truncate font-medium text-zinc-700 dark:text-zinc-300">{userEmail}</span>
-              <button
-                onClick={handleSignOut}
-                className="px-2.5 py-1 rounded-md border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                Sign Out
+              <span className="hidden max-w-[11rem] truncate border border-rule bg-sheet-alt px-2 py-1 font-mono text-[11px] text-ink-soft lg:inline-block">
+                {userEmail}
+              </span>
+              <button type="button" onClick={handleSignOut} className="btn btn-sm">
+                Sign out
               </button>
             </>
           ) : (
-            <Link
-              href="/login"
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-xs"
-            >
-              Sign In
+            <Link href="/login" className="btn btn-ink btn-sm">
+              Sign in
             </Link>
           )}
         </div>
       </div>
+
+      {/* Row 2 — mobile tab strip. Its own row and its own scroll container, so
+          long labels can never widen the page. */}
+      <nav className="scroll-x no-bar border-t border-rule bg-sheet-alt md:hidden">
+        <div className="flex w-max items-stretch">
+          {NAV_LINKS.map((link) => {
+            const active = isActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                aria-current={active ? 'page' : undefined}
+                className={`shrink-0 border-b-2 border-r border-r-rule px-3.5 py-2 text-xs transition-colors ${
+                  active
+                    ? 'border-b-khata bg-sheet font-medium text-khata'
+                    : 'border-b-transparent text-ink-soft'
+                }`}
+              >
+                {link.short}
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </header>
   );
 };

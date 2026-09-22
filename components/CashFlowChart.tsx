@@ -1,7 +1,7 @@
 /**
  * @file components/CashFlowChart.tsx
  * @description Responsive Recharts bar chart visualizing monthly cash inflows, outflows,
- * and net surplus / deficit with South Asian currency tooltips and custom color theming.
+ * and net surplus / deficit with South Asian currency tooltips and ledger color theming.
  */
 
 'use client';
@@ -17,7 +17,7 @@ import {
   Cell,
   CartesianGrid,
 } from 'recharts';
-import { formatNepaliCurrency } from '@/lib/calculations/finance';
+import { formatNepaliCompact, formatNepaliCurrency } from '@/lib/calculations/finance';
 
 /**
  * Props for CashFlowChart component.
@@ -49,25 +49,25 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   const isDeficit = savings < 0;
 
-  // Transform data points into Recharts bar dataset
+  // Transform data points into Recharts bar dataset with the ledger palette
   const data = [
     {
-      category: 'Income',
+      category: 'Inflow',
       amount: Math.max(0, income),
-      fill: '#10b981', // emerald-500
-      label: 'Monthly Inflow',
+      fill: 'var(--gain)',
+      label: 'Monthly income',
     },
     {
-      category: 'Expenses',
+      category: 'Outflow',
       amount: Math.max(0, expenses),
-      fill: '#f43f5e', // rose-500
-      label: 'Monthly Outflow',
+      fill: 'var(--loss)',
+      label: 'Monthly expenses',
     },
     {
-      category: isDeficit ? 'Deficit' : 'Savings',
+      category: isDeficit ? 'Deficit' : 'Surplus',
       amount: Math.abs(savings),
-      fill: isDeficit ? '#e11d48' : '#3b82f6', // rose-600 or blue-500
-      label: isDeficit ? 'Monthly Shortfall' : 'Net Monthly Surplus',
+      fill: isDeficit ? 'var(--loss)' : 'var(--sayapatri)',
+      label: isDeficit ? 'Monthly shortfall' : 'Investable surplus',
     },
   ];
 
@@ -76,8 +76,8 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   // Placeholder while mounting on client
   if (!isMounted) {
     return (
-      <div className="h-56 sm:h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
-        <span className="text-xs text-zinc-400">Loading chart...</span>
+      <div className="flex h-56 items-center justify-center sm:h-64">
+        <span className="fig fig-sm fig-mute">Reading the ledger&hellip;</span>
       </div>
     );
   }
@@ -85,13 +85,11 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   // Empty state when no income/expense records exist
   if (isEmpty) {
     return (
-      <div className="h-56 sm:h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-        <div className="text-2xl mb-2">📉</div>
-        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-          No Cash Flow Data
-        </p>
-        <p className="text-[11px] text-zinc-400 max-w-xs mt-1">
-          Add your monthly income and expenses to view your cash flow breakdown.
+      <div className="empty">
+        <div className="empty-mark">[ 0.00 ]</div>
+        <p className="empty-title">No cash flow entries</p>
+        <p className="empty-body">
+          Record income and expense entries in the ledger to render the cash flow comparison.
         </p>
       </div>
     );
@@ -99,51 +97,39 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="h-56 sm:h-64 w-full">
+      <div className="h-56 w-full sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
             margin={{ top: 15, right: 10, left: -10, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
+            <CartesianGrid strokeDasharray="2 2" stroke="var(--rule)" opacity={0.7} vertical={false} />
             <XAxis
               dataKey="category"
-              axisLine={false}
+              axisLine={{ stroke: 'var(--rule)' }}
               tickLine={false}
-              tick={{ fontSize: 11, fill: '#71717a' }}
+              tick={{ fontSize: 11, fill: 'var(--ink-soft)', fontFamily: 'var(--font-plex-mono)' }}
             />
             <YAxis
               axisLine={false}
               tickLine={false}
-              tick={{ fontSize: 10, fill: '#71717a' }}
-              tickFormatter={(val) =>
-                val >= 100000
-                  ? `${(val / 100000).toFixed(1)}L`
-                  : val >= 1000
-                  ? `${(val / 1000).toFixed(0)}k`
-                  : `${val}`
-              }
+              tick={{ fontSize: 10, fill: 'var(--ink-soft)', fontFamily: 'var(--font-plex-mono)' }}
+              tickFormatter={(val) => formatNepaliCompact(val)}
             />
             <Tooltip
-              cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }}
+              cursor={{ fill: 'var(--sheet-alt)' }}
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   const entry = payload[0].payload;
                   return (
-                    <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg text-xs space-y-1">
-                      <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: entry.fill }}
-                        />
+                    <div className="border border-rule bg-sheet p-2.5 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-ink">
+                        <span className="h-2 w-2" style={{ backgroundColor: entry.fill }} />
                         <span>{entry.label}</span>
                       </div>
-                      <div className="text-zinc-600 dark:text-zinc-300 font-mono">
-                        Amount:{' '}
-                        <strong>
-                          {entry.category === 'Deficit' ? '-' : ''}
-                          {formatNepaliCurrency(entry.amount)}
-                        </strong>
+                      <div className="fig fig-sm mt-1 text-ink-soft">
+                        {entry.category === 'Deficit' ? '−' : ''}
+                        {formatNepaliCurrency(entry.amount)}
                       </div>
                     </div>
                   );
@@ -151,7 +137,7 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 return null;
               }}
             />
-            <Bar dataKey="amount" radius={[8, 8, 0, 0]} maxBarSize={48}>
+            <Bar dataKey="amount" radius={0} maxBarSize={40}>
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -161,22 +147,22 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
       </div>
 
       {/* Legend & Stats */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 text-center">
-        <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">Inflow</span>
-          <span className="text-[11px] sm:text-xs font-bold font-mono text-emerald-600 dark:text-emerald-400 truncate block">
+      <div className="grid grid-cols-3 gap-2 border-t border-rule pt-3 text-center">
+        <div className="border border-rule bg-sheet-alt px-2 py-2">
+          <span className="block text-[10px] text-ink-faint">Inflow</span>
+          <span className="fig fig-sm fig-gain mt-0.5 block truncate">
             {formatNepaliCurrency(income)}
           </span>
         </div>
-        <div className="p-1.5 sm:p-2 rounded-lg bg-rose-500/5 border border-rose-500/10">
-          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">Outflow</span>
-          <span className="text-[11px] sm:text-xs font-bold font-mono text-rose-600 dark:text-rose-400 truncate block">
+        <div className="border border-rule bg-sheet-alt px-2 py-2">
+          <span className="block text-[10px] text-ink-faint">Outflow</span>
+          <span className="fig fig-sm fig-loss mt-0.5 block truncate">
             {formatNepaliCurrency(expenses)}
           </span>
         </div>
-        <div className={`p-1.5 sm:p-2 rounded-lg ${isDeficit ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-500/5 border-blue-500/10'}`}>
-          <span className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 block">{isDeficit ? 'Deficit' : 'Surplus'}</span>
-          <span className={`text-[11px] sm:text-xs font-bold font-mono ${isDeficit ? 'text-rose-600 dark:text-rose-400' : 'text-blue-600 dark:text-blue-400'} truncate block`}>
+        <div className="border border-rule bg-sheet-alt px-2 py-2">
+          <span className="block text-[10px] text-ink-faint">{isDeficit ? 'Deficit' : 'Surplus'}</span>
+          <span className={`fig fig-sm mt-0.5 block truncate ${isDeficit ? 'fig-loss' : 'text-sayapatri'}`}>
             {formatNepaliCurrency(savings)}
           </span>
         </div>

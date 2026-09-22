@@ -1,7 +1,7 @@
 /**
  * @file components/PortfolioAllocationChart.tsx
  * @description Interactive pie chart visualization for stock portfolio weight allocation.
- * Uses Recharts to display how individual stock holdings contribute to the total 
+ * Uses Recharts to display how individual stock holdings contribute to the total
  * portfolio market value in percentage terms.
  */
 
@@ -29,22 +29,23 @@ interface PortfolioAllocationChartProps {
 }
 
 /**
- * Aesthetic color palette used for distinct segments in the pie chart.
+ * Restrained allocation palette drawn from the ledger's own tokens rather than a
+ * categorical rainbow — a floor sheet doesn't need eight hues to stay legible.
+ * The brand indigo leads, the rest is a neutral ramp plus gain/loss in their
+ * normal data-signal role.
  */
 const ALLOCATION_COLORS = [
-  '#10b981', // emerald-500
-  '#6366f1', // indigo-500
-  '#f59e0b', // amber-500
-  '#06b6d4', // cyan-500
-  '#ec4899', // pink-500
-  '#8b5cf6', // purple-500
-  '#14b8a6', // teal-500
-  '#3b82f6', // blue-500
+  'var(--khata)',
+  'var(--ink-faint)',
+  'var(--gain)',
+  'var(--ink-soft)',
+  'var(--rule-strong)',
+  'var(--loss)',
 ];
 
 /**
  * Renders a doughnut/pie chart showing the percentage distribution of stock holdings.
- * 
+ *
  * @param props - PortfolioAllocationChartProps
  * @returns A visual breakdown of portfolio diversification.
  */
@@ -77,21 +78,19 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   if (!isMounted) {
     return (
-      <div className="h-56 sm:h-64 flex items-center justify-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-xl">
-        <span className="text-xs text-zinc-400">Loading chart...</span>
+      <div className="flex h-56 items-center justify-center sm:h-64">
+        <span className="fig fig-sm fig-mute">Reading the floor sheet&hellip;</span>
       </div>
     );
   }
 
   if (isEmpty) {
     return (
-      <div className="h-56 sm:h-64 flex flex-col items-center justify-center p-6 text-center bg-zinc-50/50 dark:bg-zinc-800/20 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
-        <div className="text-2xl mb-2">📊</div>
-        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-          No Stock Allocation Data
-        </p>
-        <p className="text-[11px] text-zinc-400 max-w-xs mt-1">
-          Add stock holdings with non-zero values to see your portfolio distribution breakdown.
+      <div className="empty">
+        <div className="empty-mark">[ 0.00% ]</div>
+        <p className="empty-title">No equity holdings logged</p>
+        <p className="empty-body">
+          Add stock holdings to view your NEPSE equity allocation weights.
         </p>
       </div>
     );
@@ -99,20 +98,22 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   return (
     <div className="space-y-4">
-      <div className="h-56 sm:h-64 w-full">
+      <div className="h-56 w-full sm:h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={50}
-              outerRadius={80}
-              paddingAngle={3}
+              innerRadius={48}
+              outerRadius={76}
+              paddingAngle={2}
               dataKey="value"
+              stroke="var(--rule)"
+              strokeWidth={1}
             >
               {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
             <Tooltip
@@ -120,22 +121,19 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
                 if (active && payload && payload.length) {
                   const data = payload[0].payload;
                   return (
-                    <div className="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg text-xs space-y-1">
-                      <div className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: data.color }}
-                        />
-                        <span>{data.name}</span>
-                        <span className="text-[11px] font-normal text-zinc-400 truncate max-w-[120px]">
-                          ({data.fullName})
+                    <div className="border border-rule bg-sheet p-2.5 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium text-ink">
+                        <span className="h-2 w-2" style={{ backgroundColor: data.color }} />
+                        <span className="font-mono">{data.name}</span>
+                        <span className="max-w-[120px] truncate text-[10px] font-normal text-ink-faint">
+                          {data.fullName}
                         </span>
                       </div>
-                      <div className="text-zinc-600 dark:text-zinc-300 font-mono">
-                        Valuation: <strong>{formatNepaliCurrency(data.value)}</strong>
+                      <div className="fig fig-sm mt-1 text-ink-soft">
+                        {formatNepaliCurrency(data.value)}
                       </div>
-                      <div className="text-zinc-500 dark:text-zinc-400 font-mono">
-                        Allocation: <strong>{data.percentage.toFixed(2)}%</strong> of portfolio
+                      <div className="fig fig-sm text-ink-faint">
+                        {data.percentage.toFixed(2)}% of holdings
                       </div>
                     </div>
                   );
@@ -147,28 +145,19 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
         </ResponsiveContainer>
       </div>
 
-      {/* Interactive Legend List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 max-h-48 overflow-y-auto">
+      {/* Legend list, read the way a floor sheet lists its scrips. */}
+      <div className="max-h-48 space-y-0 overflow-y-auto border-t border-rule">
         {chartData.map((item) => (
           <div
             key={item.name}
-            className="flex items-center justify-between p-2 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 text-xs"
+            className="flex items-center justify-between gap-2 border-b border-rule py-2 last:border-b-0"
           >
-            <div className="flex items-center gap-2 truncate">
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="font-bold text-zinc-900 dark:text-zinc-100">
-                {item.name}
-              </span>
-              <span className="text-[11px] text-zinc-400 truncate max-w-[90px] sm:max-w-[110px]">
-                {item.fullName}
-              </span>
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="h-2 w-2 shrink-0" style={{ backgroundColor: item.color }} />
+              <span className="ticker shrink-0">{item.name}</span>
+              <span className="truncate text-[11px] text-ink-faint">{item.fullName}</span>
             </div>
-            <div className="text-right shrink-0 ml-2 font-mono font-semibold text-zinc-700 dark:text-zinc-300">
-              {item.percentage.toFixed(1)}%
-            </div>
+            <span className="fig fig-sm shrink-0">{item.percentage.toFixed(1)}%</span>
           </div>
         ))}
       </div>

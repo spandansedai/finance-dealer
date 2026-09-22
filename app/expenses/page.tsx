@@ -22,10 +22,12 @@ import {
   calculateNetSavings,
   calculateSavingsRate,
   calculateTotalByType,
+  formatNepaliNumber,
 } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 import { AccountsManager } from '@/components/AccountsManager';
+import { LedgerRow } from '@/components/LedgerRow';
 
 /**
  * Interface representing a raw transaction record from the database.
@@ -224,7 +226,10 @@ export default function ExpensesPage() {
   const activeAdjustments = userId ? dbAdjustments : guestAdjustments;
 
   const selectedAccount = activeAccounts.find((account) => account.id === accountId);
-  const isDollarCardExpense = type === 'expense' && selectedAccount?.type === 'dollar_card';
+  // Dollar Card FX applies the same way whether the entry is income (e.g. a USD
+  // payment received) or an expense (USD spending) — currency is a property of
+  // the account, not the transaction direction.
+  const isDollarCardTx = selectedAccount?.type === 'dollar_card';
 
   /**
    * Loads user transactions from Supabase.
@@ -307,7 +312,7 @@ export default function ExpensesPage() {
   }, []);
 
   useEffect(() => {
-    if (!isDollarCardExpense) return;
+    if (!isDollarCardTx) return;
     let cancelled = false;
     const loadFxRate = async () => {
       setFxLoading(true);
@@ -330,7 +335,7 @@ export default function ExpensesPage() {
     return () => {
       cancelled = true;
     };
-  }, [isDollarCardExpense]);
+  }, [isDollarCardTx]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -373,14 +378,14 @@ export default function ExpensesPage() {
     const hasStaleRate = Boolean(fxRate?.success && fxRate.sell && fxRate.sell > 0 && fxRate.stale);
     const effectiveUsdRate = hasLiveRate || hasStaleRate ? fxRate!.sell! : manualRate > 0 ? manualRate : null;
 
-    if (isDollarCardExpense && !effectiveUsdRate) {
+    if (isDollarCardTx && !effectiveUsdRate) {
       setFormError('The NRB rate is unavailable. Enter a positive manual NPR-per-USD rate to log this Dollar Card expense.');
       return;
     }
 
-    const parsedAmount = isDollarCardExpense && effectiveUsdRate ? Number((enteredAmount * effectiveUsdRate).toFixed(2)) : enteredAmount;
-    const exchangeRateStatus = isDollarCardExpense ? (hasLiveRate ? 'live' : hasStaleRate ? 'stale' : 'manual') : null;
-    const exchangeRateDate = isDollarCardExpense ? (hasLiveRate || hasStaleRate ? fxRate?.asOf ?? txDate : txDate) : null;
+    const parsedAmount = isDollarCardTx && effectiveUsdRate ? Number((enteredAmount * effectiveUsdRate).toFixed(2)) : enteredAmount;
+    const exchangeRateStatus = isDollarCardTx ? (hasLiveRate ? 'live' : hasStaleRate ? 'stale' : 'manual') : null;
+    const exchangeRateDate = isDollarCardTx ? (hasLiveRate || hasStaleRate ? fxRate?.asOf ?? txDate : txDate) : null;
 
     if (!description.trim()) {
       setFormError('Please provide a description or note for this transaction.');
@@ -399,9 +404,9 @@ export default function ExpensesPage() {
           description: description.trim(),
           date: txDate,
           account_id: accountId || null,
-          original_amount: isDollarCardExpense ? enteredAmount : null,
-          original_currency: isDollarCardExpense ? 'USD' : null,
-          exchange_rate: isDollarCardExpense ? effectiveUsdRate : null,
+          original_amount: isDollarCardTx ? enteredAmount : null,
+          original_currency: isDollarCardTx ? 'USD' : null,
+          exchange_rate: isDollarCardTx ? effectiveUsdRate : null,
           exchange_rate_date: exchangeRateDate,
           exchange_rate_status: exchangeRateStatus,
           verified: false,
@@ -425,9 +430,9 @@ export default function ExpensesPage() {
         description: description.trim(),
         date: txDate,
         accountId: accountId || null,
-        originalAmount: isDollarCardExpense ? enteredAmount : null,
-        originalCurrency: isDollarCardExpense ? 'USD' : null,
-        exchangeRate: isDollarCardExpense ? effectiveUsdRate : null,
+        originalAmount: isDollarCardTx ? enteredAmount : null,
+        originalCurrency: isDollarCardTx ? 'USD' : null,
+        exchangeRate: isDollarCardTx ? effectiveUsdRate : null,
         exchangeRateDate: exchangeRateDate,
         exchangeRateStatus,
         verified: false,
@@ -906,12 +911,7 @@ export default function ExpensesPage() {
   const netSurplus = calculateNetSavings(totalIncome, totalExpenses);
   const savingsRate = calculateSavingsRate(totalIncome, totalExpenses);
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat('en-NP', {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 0,
-    }).format(val);
-  };
+  const formatCurrency = formatNepaliNumber;
 
   // Filtered transactions
   const filteredTransactions = activeTransactions.filter((item) => {
@@ -943,161 +943,109 @@ export default function ExpensesPage() {
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-3 sm:p-6 md:p-10">
-      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        {loadError && (
-          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
-            {loadError}
+    <main className="page bound">
+      <span className="binding-label">FY 2083/84</span>
+      <div className="space-y-6">
+        {/* Masthead */}
+        <header className="masthead">
+          <div>
+            <h1>Income &amp; expenses</h1>
+            <p className="masthead-note">
+              Write an entry, reconcile account balances against a statement, and record Dollar
+              Card spending at the NRB rate.
+            </p>
           </div>
-        )}
-        {accountError && (
-          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
-            {accountError}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="stamp">
+              {activeTransactions.length}
+              <span className="hair" aria-hidden="true" />
+              {activeTransactions.length === 1 ? 'entry' : 'entries'}
+            </span>
+            <Link href="/" className="btn btn-sm">
+              Overview
+            </Link>
           </div>
-        )}
+        </header>
+
+        {loadError && <div className="note note-loss">{loadError}</div>}
+        {accountError && <div className="note note-loss">{accountError}</div>}
         {accountMessage && (
-          <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+          <div className="note note-gain">
             <span>{accountMessage}</span>
-            <button type="button" onClick={() => setAccountMessage(null)} className="text-xs font-bold ml-2 cursor-pointer">✕</button>
+            <button
+              type="button"
+              onClick={() => setAccountMessage(null)}
+              className="link-ink text-xs font-bold"
+            >
+              Dismiss
+            </button>
           </div>
         )}
-        {loadingTransactions && (
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">Loading financial data...</div>
-        )}
+        {loadingTransactions && <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>}
 
         {/* Guest Mode Notice */}
         {!userId && authChecked && (
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 dark:bg-amber-500/30 text-amber-800 dark:text-amber-300 font-bold text-xs uppercase tracking-wide shrink-0">
-                Try It Out Mode
-              </span>
-              <span>
-                Adding entries in <strong>Guest Mode</strong>. Transactions and account reconciliations live in RAM and reset on refresh.
-              </span>
-            </div>
-            <Link
-              href="/login"
-              className="px-3 py-1 font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs"
-            >
-              Sign Up / Sign In to Save
+          <div className="note note-warn">
+            <span>
+              This is a <strong>scratch page</strong>. Entries, transfers and reconciliations stay
+              in memory and are gone when you reload.
+            </span>
+            <Link href="/login" className="btn btn-warn btn-sm">
+              Sign in to keep them
             </Link>
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Income & Expense Tracking</h1>
-              <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                v1.4 Live Derived
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              Log expenditures, reconcile accounts with balance adjustments, lock verified entries, and preserve clean NEPSE investment capacity.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shadow-xs"
-            >
-              <span>←</span>
-              <span>Back to Dashboard</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Monthly Cash Flow Metrics */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm sm:text-base font-semibold tracking-tight text-zinc-800 dark:text-zinc-200">
-              Monthly Cash Flow Breakdown
+        {/* Monthly cash flow */}
+        <section className="sheet">
+          <div className="sheet-hd">
+            <h2 className="sheet-title">
+              Cash flow this month
             </h2>
-            <span className="text-xs text-zinc-500">
-              {activeTransactions.length} total logged transactions
-            </span>
+            <span className="sheet-sub">{activeTransactions.length} recorded entries</span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-5">
-            {/* Total Income */}
-            <div className="p-5 sm:p-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 shadow-xs transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Income</span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
-                  {activeTransactions.filter((t) => t.type === 'income').length} Sources
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 break-words">
-                  {formatCurrency(totalIncome)}
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Total inflows from salaries, side income, and returns
-              </p>
-            </div>
-
-            {/* Total Expenses */}
-            <div className="p-5 sm:p-6 rounded-2xl border border-rose-500/20 bg-rose-950/10 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400 shadow-xs transition-all hover:shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Total Monthly Expenses</span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300">
-                  {activeTransactions.filter((t) => t.type === 'expense').length} Logged
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 break-words">
-                  {formatCurrency(totalExpenses)}
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Rent, living costs, and Dollar Card expenditures
-              </p>
-            </div>
-
-            {/* Net Surplus */}
-            <div className="p-5 sm:p-6 rounded-2xl border border-blue-500/20 bg-blue-950/10 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 shadow-xs transition-all hover:shadow-md sm:col-span-2 md:col-span-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Net Monthly Surplus</span>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300">
-                  {savingsRate}% Savings Rate
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4 flex items-baseline gap-1.5">
-                <span className="text-xs sm:text-sm font-semibold text-zinc-400 dark:text-zinc-500">Rs.</span>
-                <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight break-words ${netSurplus >= 0 ? 'text-zinc-900 dark:text-zinc-50' : 'text-rose-600 dark:text-rose-400'}`}>
-                  {formatCurrency(netSurplus)}
-                </span>
-              </div>
-              <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Investment Capacity ready for NEPSE
-              </p>
+          <div className="sheet-bd">
+            <div className="ledger">
+              <LedgerRow
+                label="Income"
+                amount={totalIncome}
+                unit="Rs"
+                tone="gain"
+                tag={`${activeTransactions.filter((t) => t.type === 'income').length} sources`}
+                note="Salary, side work, freelance and returns."
+              />
+              <LedgerRow
+                label="Expenses"
+                amount={totalExpenses}
+                unit="Rs"
+                tone="loss"
+                tag={`${activeTransactions.filter((t) => t.type === 'expense').length} logged`}
+                note="Rent, living costs, bills and Dollar Card FX."
+              />
+              <LedgerRow
+                label="Net investable surplus"
+                amount={netSurplus}
+                unit="Rs"
+                tone={netSurplus >= 0 ? 'gain' : 'loss'}
+                total
+                large
+                note={`${savingsRate}% savings rate. Unallocated capital, ready for NEPSE.`}
+              />
             </div>
           </div>
         </section>
 
         {/* Data Cleanup Guidance Banner (Only shown when potential fix-ups are detected) */}
         {potentialFixupsCount > 0 && (
-          <div className="p-4 rounded-2xl bg-sky-500/10 dark:bg-sky-950/30 border border-sky-500/30 text-sky-900 dark:text-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm shadow-xs">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-base">💡</span>
-                <strong>Review Past Balance Fix-up Entries ({potentialFixupsCount} found):</strong>
-              </div>
-              <p className="text-xs text-sky-800 dark:text-sky-300">
-                You have logged entries that appear to be manual balance fixes (e.g. negative cash transactions). These distort your monthly income/expense totals. Use the &quot;Potential Fix-ups&quot; tab below to review them and convert them into clean <strong>Balance Adjustments</strong>.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFilterType('fixups')}
-              className="px-3.5 py-1.5 font-bold rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs cursor-pointer"
-            >
-              Review Fix-ups ({potentialFixupsCount})
+          <div className="note note-warn">
+            <span>
+              <strong>{potentialFixupsCount} past entries look like balance fix-ups</strong> —
+              manual corrections such as negative cash transactions that distort your monthly
+              income/expense totals. Use the &quot;Fix-ups&quot; tab below to convert them into
+              dedicated balance adjustments.
+            </span>
+            <button type="button" onClick={() => setFilterType('fixups')} className="btn btn-warn btn-sm">
+              Review fix-ups ({potentialFixupsCount})
             </button>
           </div>
         )}
@@ -1120,205 +1068,188 @@ export default function ExpensesPage() {
         />
 
         {/* Transaction Input Form & Logged List */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           {/* Form */}
-          <div className="lg:col-span-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-xs space-y-5">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                Add Transaction {!userId && <span className="text-xs font-normal text-amber-600 dark:text-amber-400">(Guest Mode)</span>}
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Record an income stream or daily expenditure. Link to an account for dynamic balance derivation.
-              </p>
-            </div>
-
-            {formError && (
-              <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleAddTransaction} className="space-y-4">
-              {/* Type Switcher */}
+          <div className="sheet lg:col-span-5">
+            <div className="sheet-hd">
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
-                  Transaction Type
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl">
+                <h2 className="sheet-title">Write an entry</h2>
+                <p className="sheet-sub">
+                  {!userId && 'Guest mode. '}
+                  Link it to an account for a live balance.
+                </p>
+              </div>
+            </div>
+            <div className="sheet-bd">
+              {formError && <div className="note note-loss mb-4">{formError}</div>}
+
+              <form onSubmit={handleAddTransaction} className="space-y-4">
+                {/* Type Switcher */}
+                <div className="seg" role="group" aria-label="Transaction type">
                   <button
                     type="button"
+                    aria-pressed={type === 'income'}
                     onClick={() => handleTypeChange('income')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      type === 'income'
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
+                    className="flex-1"
                   >
-                    <span>+</span>
-                    <span>Income</span>
+                    + Income
                   </button>
                   <button
                     type="button"
+                    aria-pressed={type === 'expense'}
                     onClick={() => handleTypeChange('expense')}
-                    className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      type === 'expense'
-                        ? 'bg-rose-600 text-white shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
+                    className="flex-1"
                   >
-                    <span>−</span>
-                    <span>Expense</span>
+                    &minus; Expense
                   </button>
                 </div>
-              </div>
 
-              {/* Amount Field */}
-              <div>
-                <label htmlFor="amount" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  {isDollarCardExpense ? 'Amount (USD) *' : 'Amount (in NPR / Rs.) *'}
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 font-semibold text-sm">
-                    {isDollarCardExpense ? 'USD' : 'Rs.'}
+                {/* Account selection — first, so choosing a Dollar Card account
+                    immediately switches the Amount field below to ask for USD,
+                    instead of silently reinterpreting a number already typed. */}
+                <div>
+                  <label htmlFor="account" className="field-lbl">
+                    Account <span className="text-ink-faint">(optional)</span>
+                  </label>
+                  <select
+                    id="account"
+                    value={accountId}
+                    onChange={(e) => setAccountId(e.target.value)}
+                    className="field"
+                  >
+                    <option value="">No account selected</option>
+                    {activeAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} (Rs {formatCurrency(accountBalances[account.id] ?? 0)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Amount Field */}
+                <div>
+                  <label htmlFor="amount" className="field-lbl">
+                    {isDollarCardTx ? 'Amount (USD)' : 'Amount (NPR)'}
+                  </label>
+                  <div className="field-wrap">
+                    <span className="prefix">{isDollarCardTx ? 'USD' : 'Rs'}</span>
+                    <input
+                      id="amount"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder={isDollarCardTx ? 'e.g. 12.99' : 'e.g. 5000'}
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      required
+                      className="field field-num"
+                    />
                   </div>
+                </div>
+
+                {isDollarCardTx && (
+                  <div className={`note ${fxRate?.stale ? 'note-warn' : ''}`}>
+                    {fxLoading ? (
+                      <span>Loading the official NRB USD rate&hellip;</span>
+                    ) : fxRate?.success && fxRate.sell ? (
+                      <span>
+                        <strong>{fxRate.stale ? 'Possibly stale NRB fallback: ' : 'Current NRB sell rate: '}</strong>
+                        1 USD &asymp; Rs {formatCurrency(fxRate.sell)}
+                        {fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}.{' '}
+                        {fxRate.stale ? 'This is the last successfully fetched rate.' : `Used for this Dollar Card ${type === 'income' ? 'deposit' : 'expense'}.`}
+                      </span>
+                    ) : (
+                      <div className="w-full space-y-2">
+                        <p>
+                          <strong>NRB rate unavailable: </strong>
+                          {fxRate?.error ?? 'No rate could be loaded.'} Enter the manual rate below.
+                        </p>
+                        <div>
+                          <label className="field-lbl">Manual NPR per USD</label>
+                          <input
+                            type="number"
+                            min="0.000001"
+                            step="0.000001"
+                            value={manualUsdRate}
+                            onChange={(event) => setManualUsdRate(event.target.value)}
+                            placeholder="e.g. 140.25"
+                            className="field field-num"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {amount && !fxLoading && ((fxRate?.success && fxRate.sell) || Number(manualUsdRate) > 0) && (
+                      <p className="w-full mt-1 fig fig-sm">
+                        Converted total: Rs {formatCurrency(Number(amount) * (fxRate?.success && fxRate.sell ? fxRate.sell : Number(manualUsdRate)))}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Category Field */}
+                <div>
+                  <label htmlFor="category" className="field-lbl">
+                    Category
+                  </label>
+                  <select
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="field"
+                  >
+                    {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label htmlFor="description" className="field-lbl">
+                    Description
+                  </label>
                   <input
-                    id="amount"
-                    type="number"
-                    step="any"
-                    min="0"
-                    placeholder={isDollarCardExpense ? 'e.g. 12.99' : 'e.g. 5000'}
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    id="description"
+                    type="text"
+                    placeholder={type === 'income' ? 'e.g. Monthly salary from company' : 'e.g. Groceries at Bhatbhateni'}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
                     required
-                    className="w-full pl-12 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
+                    className="field"
                   />
                 </div>
-              </div>
 
-              {/* Category Field */}
-              <div>
-                <label htmlFor="category" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Category *
-                </label>
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
-                >
-                  {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {isDollarCardExpense && (
-                <div className={`rounded-xl border p-3 text-xs ${fxRate?.stale ? 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100' : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-100'}`}>
-                  {fxLoading ? (
-                    <p>Loading the official NRB USD rate…</p>
-                  ) : fxRate?.success && fxRate.sell ? (
-                    <p><strong>{fxRate.stale ? 'Possibly stale NRB fallback:' : 'Current NRB sell rate:'}</strong> 1 USD ≈ Rs. {formatCurrency(fxRate.sell)}{fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}. {fxRate.stale ? 'This is the last successfully fetched rate.' : 'Used for Dollar Card spending.'}</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p><strong>NRB rate unavailable:</strong> {fxRate?.error ?? 'No rate could be loaded.'} Enter the manual rate below.</p>
-                      <label className="block font-semibold">
-                        Manual NPR per USD
-                        <input
-                          type="number"
-                          min="0.000001"
-                          step="0.000001"
-                          value={manualUsdRate}
-                          onChange={(event) => setManualUsdRate(event.target.value)}
-                          placeholder="e.g. 140.25"
-                          className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-1.5 text-xs text-zinc-900 dark:border-amber-700 dark:bg-zinc-900 dark:text-zinc-100"
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {amount && !fxLoading && ((fxRate?.success && fxRate.sell) || Number(manualUsdRate) > 0) && (
-                    <p className="mt-2 font-semibold">
-                      Converted NPR total: Rs. {formatCurrency(Number(amount) * (fxRate?.success && fxRate.sell ? fxRate.sell : Number(manualUsdRate)))}
-                    </p>
-                  )}
+                {/* Date */}
+                <div>
+                  <label htmlFor="date" className="field-lbl">
+                    Date
+                  </label>
+                  <input
+                    id="date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="field"
+                  />
                 </div>
-              )}
 
-              {/* Description */}
-              <div>
-                <label htmlFor="description" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Description / Note *
-                </label>
-                <input
-                  id="description"
-                  type="text"
-                  placeholder={type === 'income' ? 'e.g. Monthly salary from company' : 'e.g. Groceries at Bhatbhateni'}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  required
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
-                />
-              </div>
-
-              {/* Date */}
-              <div>
-                <label htmlFor="date" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Date
-                </label>
-                <input
-                  id="date"
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
-                />
-              </div>
-
-              {/* Account selection */}
-              <div>
-                <label htmlFor="account" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Account <span className="font-normal text-zinc-400">(optional)</span>
-                </label>
-                <select
-                  id="account"
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition"
-                >
-                  <option value="">No account selected</option>
-                  {activeAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} (Rs. {formatCurrency(accountBalances[account.id] ?? 0)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-sm transition-all cursor-pointer ${
-                  type === 'income'
-                    ? 'bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400'
-                    : 'bg-rose-600 hover:bg-rose-500 focus:ring-2 focus:ring-rose-400'
-                }`}
-              >
-                {submitting ? 'Saving...' : `+ Add ${type === 'income' ? 'Income' : 'Expense'} Entry`}
-              </button>
-            </form>
+                <button type="submit" disabled={submitting} className="btn btn-ink btn-block">
+                  {submitting ? 'Saving…' : `Add ${type === 'income' ? 'income' : 'expense'} entry`}
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Logged Transactions Table */}
-          <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xs overflow-hidden">
+          <div className="sheet lg:col-span-7">
             {/* Table Header Controls */}
-            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 space-y-3 sm:space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="sheet-hd flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                    Logged Transactions
-                  </h2>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <h2 className="sheet-title">Logged transactions</h2>
+                  <p className="sheet-sub">
                     {totalItems === 0
                       ? '0 records'
                       : `Showing ${startIndex + 1}–${endIndex} of ${totalItems} records${
@@ -1328,46 +1259,18 @@ export default function ExpensesPage() {
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex flex-wrap items-center p-1 bg-zinc-100 dark:bg-zinc-800 rounded-xl text-xs font-medium self-start sm:self-auto gap-1">
-                  <button
-                    onClick={() => setFilterType('all')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      filterType === 'all'
-                        ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
-                  >
+                <div className="seg self-start sm:self-auto">
+                  <button type="button" aria-pressed={filterType === 'all'} onClick={() => setFilterType('all')}>
                     All ({activeTransactions.length})
                   </button>
-                  <button
-                    onClick={() => setFilterType('income')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      filterType === 'income'
-                        ? 'bg-emerald-600 text-white font-semibold shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
-                  >
+                  <button type="button" aria-pressed={filterType === 'income'} onClick={() => setFilterType('income')}>
                     Income ({activeTransactions.filter((t) => t.type === 'income').length})
                   </button>
-                  <button
-                    onClick={() => setFilterType('expense')}
-                    className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                      filterType === 'expense'
-                        ? 'bg-rose-600 text-white font-semibold shadow-xs'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
-                    }`}
-                  >
+                  <button type="button" aria-pressed={filterType === 'expense'} onClick={() => setFilterType('expense')}>
                     Expenses ({activeTransactions.filter((t) => t.type === 'expense').length})
                   </button>
                   {potentialFixupsCount > 0 && (
-                    <button
-                      onClick={() => setFilterType('fixups')}
-                      className={`px-2.5 sm:px-3 py-1.5 rounded-lg transition cursor-pointer ${
-                        filterType === 'fixups'
-                          ? 'bg-sky-600 text-white font-semibold shadow-xs'
-                          : 'text-sky-600 dark:text-sky-400 hover:bg-sky-100 dark:hover:bg-sky-950/40'
-                      }`}
-                    >
+                    <button type="button" aria-pressed={filterType === 'fixups'} onClick={() => setFilterType('fixups')}>
                       Fix-ups ({potentialFixupsCount})
                     </button>
                   )}
@@ -1379,10 +1282,10 @@ export default function ExpensesPage() {
                 <select
                   value={filterAccount}
                   onChange={(e) => setFilterAccount(e.target.value)}
-                  className="px-3 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                  className="field"
                 >
-                  <option value="all">All Accounts</option>
-                  <option value="unassigned">Unassigned (No Account)</option>
+                  <option value="all">All accounts</option>
+                  <option value="unassigned">Unassigned (no account)</option>
                   {activeAccounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.name}
@@ -1391,41 +1294,39 @@ export default function ExpensesPage() {
                 </select>
                 <input
                   type="text"
-                  placeholder="Search transactions by description or category..."
+                  placeholder="Search by description or category&hellip;"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-base sm:text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                  className="field"
                 />
               </div>
             </div>
 
             {/* Table */}
             {filteredTransactions.length === 0 ? (
-              <div className="p-8 sm:p-12 text-center space-y-3">
-                <div className="text-3xl">📝</div>
-                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                  No transactions found
-                </p>
-                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+              <div className="empty m-3.5">
+                <p className="empty-mark">&mdash;</p>
+                <h3 className="empty-title">No transactions found</h3>
+                <p className="empty-body">
                   {activeTransactions.length === 0
-                    ? 'Use the form on the left to add your first income or expense entry.'
-                    : 'No records match your search filter.'}
+                    ? 'Use the form to write your first income or expense entry.'
+                    : 'No records match this filter.'}
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto w-full">
-                <table className="w-full min-w-[620px] text-left text-sm">
-                  <thead className="bg-zinc-50 dark:bg-zinc-800/40 text-zinc-500 dark:text-zinc-400 text-xs font-medium border-b border-zinc-200 dark:border-zinc-800">
+              <div className="scroll-x">
+                <table className="floor min-w-[620px]">
+                  <thead>
                     <tr>
-                      <th scope="col" className="py-3 px-3 sm:px-4">Date</th>
-                      <th scope="col" className="py-3 px-3 sm:px-4">Description</th>
-                      <th scope="col" className="py-3 px-3 sm:px-4">Account / Cat</th>
-                      <th scope="col" className="py-3 px-3 sm:px-4 text-right">Amount</th>
-                      <th scope="col" className="py-3 px-3 sm:px-4 text-center">Status</th>
-                      <th scope="col" className="py-3 px-3 sm:px-4 text-center">Action</th>
+                      <th scope="col">Date</th>
+                      <th scope="col">Description</th>
+                      <th scope="col">Account / category</th>
+                      <th scope="col" className="text-right">Amount</th>
+                      <th scope="col" className="text-center">Status</th>
+                      <th scope="col" className="text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800/60">
+                  <tbody>
                     {paginatedTransactions.map((item) => {
                       const isIncome = item.type === 'income';
                       const account = activeAccounts.find((a) => a.id === item.accountId);
@@ -1433,148 +1334,100 @@ export default function ExpensesPage() {
                       const isFixup = isPotentialFixup(item);
 
                       return (
-                        <tr
-                          key={item.id}
-                          className={`hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors ${
-                            isFixup && filterType === 'fixups' ? 'bg-sky-50/40 dark:bg-sky-950/20' : ''
-                          }`}
-                        >
+                        <tr key={item.id} className={isFixup && filterType === 'fixups' ? 'bg-sayapatri-wash/40' : undefined}>
                           {/* Date */}
-                          <td className="py-3.5 px-3 sm:px-4 text-xs font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
-                            {item.date}
-                          </td>
+                          <td className="fig fig-sm whitespace-nowrap">{item.date}</td>
 
                           {/* Description */}
-                          <td className="py-3.5 px-3 sm:px-4">
-                            <div className="font-medium text-zinc-900 dark:text-zinc-100 text-xs sm:text-sm max-w-[160px] sm:max-w-none truncate">
+                          <td>
+                            <div className="max-w-[160px] truncate text-xs font-medium text-ink sm:max-w-none sm:text-[13px]">
                               {item.description}
                             </div>
-                            {isFixup && (
-                              <span className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold block">
-                                💡 Potential Fix-up entry
-                              </span>
-                            )}
+                            {isFixup && <span className="tag tag-warn mt-1">Possible fix-up</span>}
                           </td>
 
                           {/* Account & Category */}
-                          <td className="py-3.5 px-3 sm:px-4 whitespace-nowrap space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                                  isIncome
-                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50'
-                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
-                                }`}
-                              >
-                                {item.category}
-                              </span>
-                            </div>
+                          <td className="whitespace-nowrap">
+                            <span className={`tag ${isIncome ? 'tag-gain' : ''}`}>{item.category}</span>
                             {account ? (
-                              <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
-                                🏦 {account.name}
-                              </div>
+                              <div className="mt-1 fig fig-sm fig-mute">{account.name}</div>
                             ) : (
-                              <div className="text-[10px] text-zinc-400 italic">No account</div>
+                              <div className="mt-1 text-[11px] italic text-ink-faint">No account</div>
                             )}
                           </td>
 
                           {/* Amount */}
-                          <td className="py-3.5 px-3 sm:px-4 text-right font-mono font-bold text-xs sm:text-sm whitespace-nowrap">
-                            <span
-                              className={
-                                isIncome
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-rose-600 dark:text-rose-400'
-                              }
-                            >
-                              {item.originalCurrency === 'USD' && item.originalAmount && item.exchangeRate ? (
-                                <>
-                                  <span>− USD {formatCurrency(item.originalAmount)}</span>
-                                  <span className="block text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                                    ≈ Rs. {formatCurrency(item.amount)} @ {formatCurrency(item.exchangeRate)}
-                                    {item.exchangeRateStatus === 'stale'
-                                      ? ' (stale)'
-                                      : item.exchangeRateStatus === 'manual'
-                                      ? ' (manual)'
-                                      : ''}
-                                  </span>
-                                </>
-                              ) : (
-                                <>{isIncome ? '+' : '−'} Rs. {formatCurrency(item.amount)}</>
-                              )}
-                            </span>
+                          <td className="num">
+                            {item.originalCurrency === 'USD' && item.originalAmount && item.exchangeRate ? (
+                              <>
+                                <span className={`fig fig-md ${isIncome ? 'fig-gain' : 'fig-loss'}`}>
+                                  {isIncome ? '+' : '−'} <span className="unit">USD</span>
+                                  {formatCurrency(item.originalAmount)}
+                                </span>
+                                <span className="block fig fig-sm fig-mute">
+                                  &asymp; Rs {formatCurrency(item.amount)} @ {formatCurrency(item.exchangeRate)}
+                                  {item.exchangeRateStatus === 'stale'
+                                    ? ' (stale)'
+                                    : item.exchangeRateStatus === 'manual'
+                                    ? ' (manual)'
+                                    : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <span className={`fig fig-md ${isIncome ? 'fig-gain' : 'fig-loss'}`}>
+                                {isIncome ? '+' : '−'} <span className="unit">Rs</span>
+                                {formatCurrency(item.amount)}
+                              </span>
+                            )}
                           </td>
 
                           {/* Verification Status */}
-                          <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
+                          <td className="text-center whitespace-nowrap">
                             {isVerified ? (
-                              <span
-                                title="Verified against statement (Locked against accidental changes)"
-                                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shadow-2xs"
-                              >
-                                🔒 Verified
+                              <span title="Verified against statement, locked against accidental changes" className="tag tag-gain">
+                                Verified
                               </span>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleVerifyTransaction(item)}
-                                className="text-xs text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition cursor-pointer underline"
-                              >
-                                Mark Verified
+                              <button type="button" onClick={() => handleToggleVerifyTransaction(item)} className="link-ink text-xs">
+                                Mark verified
                               </button>
                             )}
                           </td>
 
                           {/* Actions */}
-                          <td className="py-3.5 px-3 sm:px-4 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {/* Edit Button */}
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(item)}
-                                title={isVerified ? 'View locked transaction details' : 'Edit transaction'}
-                                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
+                          <td className="text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-2.5">
+                              <button type="button" onClick={() => openEditModal(item)} className="link-ink text-xs">
+                                {isVerified ? 'View' : 'Edit'}
                               </button>
 
-                              {/* Unlock Button for Verified */}
                               {isVerified && (
                                 <button
                                   type="button"
                                   onClick={() => setUnlockModalTx(item)}
-                                  title="Unlock verified transaction"
-                                  className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition cursor-pointer text-xs font-semibold"
+                                  className="text-xs font-medium text-sayapatri hover:underline"
                                 >
                                   Unlock
                                 </button>
                               )}
 
-                              {/* Convert to Balance Adjustment Button */}
                               {isFixup && (
                                 <button
                                   type="button"
                                   onClick={() => openConvertModal(item)}
-                                  title="Convert to dedicated Balance Adjustment"
-                                  className="px-2 py-1 rounded-md text-[11px] font-bold bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 hover:bg-sky-200 cursor-pointer shadow-2xs"
+                                  className="text-xs font-medium text-sayapatri hover:underline"
                                 >
-                                  ⚖️ Convert
+                                  Convert
                                 </button>
                               )}
 
-                              {/* Delete Button (Only for Unverified) */}
                               {!isVerified && (
                                 <button
                                   type="button"
                                   onClick={() => executeDeleteTransaction(item.id)}
-                                  title="Delete transaction"
-                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition cursor-pointer"
+                                  className="text-xs font-medium text-loss hover:underline"
                                 >
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
+                                  Delete
                                 </button>
                               )}
                             </div>
@@ -1589,20 +1442,19 @@ export default function ExpensesPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="p-3 sm:p-4 bg-zinc-50/70 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                <div className="text-zinc-500 dark:text-zinc-400 text-center sm:text-left">
-                  Page <span className="font-semibold text-zinc-800 dark:text-zinc-200">{effectivePage}</span> of{' '}
-                  <span className="font-semibold text-zinc-800 dark:text-zinc-200">{totalPages}</span>
+              <div className="sheet-ft flex flex-col items-center justify-between gap-3 sm:flex-row">
+                <div className="fig fig-sm fig-mute">
+                  Page {effectivePage} of {totalPages}
                 </div>
 
-                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                <div className="flex flex-wrap items-center justify-center gap-1.5">
                   <button
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={effectivePage <= 1}
-                    className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium shadow-2xs cursor-pointer"
+                    className="btn btn-sm"
                   >
-                    ← Prev
+                    Prev
                   </button>
 
                   <div className="flex items-center gap-1">
@@ -1611,11 +1463,7 @@ export default function ExpensesPage() {
                         key={pageNum}
                         type="button"
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
-                          pageNum === effectivePage
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700'
-                        }`}
+                        className={`btn btn-sm ${pageNum === effectivePage ? 'btn-ink' : ''}`}
                       >
                         {pageNum}
                       </button>
@@ -1626,9 +1474,9 @@ export default function ExpensesPage() {
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={effectivePage >= totalPages}
-                    className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition font-medium shadow-2xs cursor-pointer"
+                    className="btn btn-sm"
                   >
-                    Next →
+                    Next
                   </button>
                 </div>
               </div>
@@ -1636,32 +1484,29 @@ export default function ExpensesPage() {
 
             {/* Table Footer */}
             {filteredTransactions.length > 0 && (
-              <div className="p-3.5 sm:p-4 bg-zinc-50 dark:bg-zinc-800/30 border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+              <div className="sheet-ft flex flex-wrap items-center justify-between gap-3">
                 <span>
                   Net for selected list:{' '}
-                  <strong
-                    className={
+                  <span
+                    className={`fig fig-sm ${
                       calculateNetSavings(
                         calculateTotalByType(filteredTransactions, 'income'),
                         calculateTotalByType(filteredTransactions, 'expense')
                       ) >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-rose-600 dark:text-rose-400'
-                    }
+                        ? 'fig-gain'
+                        : 'fig-loss'
+                    }`}
                   >
-                    Rs.{' '}
+                    Rs{' '}
                     {formatCurrency(
                       calculateNetSavings(
                         calculateTotalByType(filteredTransactions, 'income'),
                         calculateTotalByType(filteredTransactions, 'expense')
                       )
                     )}
-                  </strong>
+                  </span>
                 </span>
-                <button
-                  onClick={handleClearAll}
-                  className="text-xs text-zinc-500 hover:text-rose-600 transition underline cursor-pointer"
-                >
+                <button onClick={handleClearAll} className="link-ink text-xs">
                   Clear all records
                 </button>
               </div>
@@ -1672,181 +1517,144 @@ export default function ExpensesPage() {
 
       {/* Edit Transaction Modal */}
       {editingTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <div className="scrim">
+          <div className="dialog">
+            <div className="dialog-hd">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  {editingTx.verified ? 'Locked Transaction Details' : 'Edit Transaction'}
-                </h3>
-                {editingTx.verified && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold border border-emerald-300">
-                    🔒 Locked
-                  </span>
-                )}
+                <h3>{editingTx.verified ? 'Locked transaction' : 'Edit transaction'}</h3>
+                {editingTx.verified && <span className="tag tag-warn">Locked</span>}
               </div>
-              <button
-                type="button"
-                onClick={() => setEditingTx(null)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-lg font-bold cursor-pointer"
-              >
-                ✕
+              <button type="button" onClick={() => setEditingTx(null)} className="link-ink text-xs">
+                Close
               </button>
             </div>
 
-            {editingTx.verified && (
-              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 space-y-2">
-                <p>
-                  🔒 <strong>This transaction is verified</strong> against statements. Its amount, category, account, and date are read-only to prevent accidental corruption of your records.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setUnlockModalTx(editingTx)}
-                  className="px-3 py-1 bg-amber-600 text-white rounded-lg font-bold text-xs hover:bg-amber-500 cursor-pointer"
-                >
-                  Unlock this Transaction to Edit
-                </button>
-              </div>
-            )}
-
-            {editError && (
-              <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
-                {editError}
-              </div>
-            )}
-
-            <form onSubmit={saveEditTransaction} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Amount (NPR) *
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0.01"
-                  disabled={editingTx.verified}
-                  value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-60"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Category *
-                </label>
-                <select
-                  disabled={editingTx.verified}
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-60"
-                >
-                  {(editingTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Description / Note *
-                </label>
-                <input
-                  type="text"
-                  disabled={editingTx.verified}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-60"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  disabled={editingTx.verified}
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-60"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Linked Account
-                </label>
-                <select
-                  disabled={editingTx.verified}
-                  value={editAccountId}
-                  onChange={(e) => setEditAccountId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-60"
-                >
-                  <option value="">No account selected</option>
-                  {activeAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name} (Rs. {formatCurrency(accountBalances[account.id] ?? 0)})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingTx(null)}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  Close
-                </button>
-                {!editingTx.verified && (
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 cursor-pointer shadow-xs"
-                  >
-                    Save Changes
+            <div className="dialog-bd space-y-4">
+              {editingTx.verified && (
+                <div className="note note-warn">
+                  <span>
+                    <strong>This transaction is verified</strong> against a statement. Its amount,
+                    category, account, and date are read-only until unlocked.
+                  </span>
+                  <button type="button" onClick={() => setUnlockModalTx(editingTx)} className="btn btn-warn btn-sm">
+                    Unlock to edit
                   </button>
-                )}
-              </div>
-            </form>
+                </div>
+              )}
+
+              {editError && <div className="note note-loss">{editError}</div>}
+
+              <form id="edit-tx-form" onSubmit={saveEditTransaction} className="space-y-4">
+                <div>
+                  <label className="field-lbl">Amount (NPR)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    disabled={editingTx.verified}
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    className="field field-num"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="field-lbl">Category</label>
+                  <select
+                    disabled={editingTx.verified}
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="field"
+                  >
+                    {(editingTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="field-lbl">Description</label>
+                  <input
+                    type="text"
+                    disabled={editingTx.verified}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="field-lbl">Date</label>
+                  <input
+                    type="date"
+                    disabled={editingTx.verified}
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="field"
+                  />
+                </div>
+
+                <div>
+                  <label className="field-lbl">Linked account</label>
+                  <select
+                    disabled={editingTx.verified}
+                    value={editAccountId}
+                    onChange={(e) => setEditAccountId(e.target.value)}
+                    className="field"
+                  >
+                    <option value="">No account selected</option>
+                    {activeAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} (Rs {formatCurrency(accountBalances[account.id] ?? 0)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </form>
+            </div>
+            <div className="dialog-ft">
+              <button type="button" onClick={() => setEditingTx(null)} className="btn btn-sm">
+                Close
+              </button>
+              {!editingTx.verified && (
+                <button type="submit" form="edit-tx-form" className="btn btn-ink btn-sm">
+                  Save changes
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Unlock Confirmation Modal */}
       {unlockModalTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 p-5 shadow-xl space-y-3">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-sm">
-              <span className="text-lg">⚠️</span>
-              <span>Unlock Verified Transaction?</span>
+        <div className="scrim">
+          <div className="dialog max-w-sm">
+            <div className="dialog-hd">
+              <h3>Unlock verified transaction?</h3>
             </div>
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              This transaction is verified — unlocking it will allow changes that affect your totals. Continue?
-            </p>
-            <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-300 space-y-0.5">
-              <div><strong>{unlockModalTx.description}</strong></div>
-              <div>{unlockModalTx.date} · Rs. {formatCurrency(unlockModalTx.amount)}</div>
+            <div className="dialog-bd space-y-3">
+              <p className="text-[13px] leading-relaxed text-ink-soft">
+                This transaction is verified against a statement. Unlocking it will allow changes
+                that affect your totals.
+              </p>
+              <div className="border border-rule bg-sheet-alt p-2.5">
+                <p className="text-[13px] font-medium text-ink">{unlockModalTx.description}</p>
+                <p className="fig fig-sm fig-mute mt-0.5">
+                  {unlockModalTx.date} &middot; Rs {formatCurrency(unlockModalTx.amount)}
+                </p>
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setUnlockModalTx(null)}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-              >
-                Keep Locked
+            <div className="dialog-ft">
+              <button type="button" onClick={() => setUnlockModalTx(null)} className="btn btn-sm">
+                Keep locked
               </button>
-              <button
-                type="button"
-                onClick={confirmUnlockTransaction}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-600 text-white hover:bg-amber-500 cursor-pointer"
-              >
-                Yes, Unlock
+              <button type="button" onClick={confirmUnlockTransaction} className="btn btn-warn btn-sm">
+                Yes, unlock
               </button>
             </div>
           </div>
@@ -1855,82 +1663,62 @@ export default function ExpensesPage() {
 
       {/* Convert to Balance Adjustment Modal (Data Cleanup Flow) */}
       {convertModalTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white dark:bg-zinc-900 dark:border-zinc-800 p-5 sm:p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚖️</span>
-                <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-                  Convert to Balance Adjustment
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setConvertModalTx(null)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-lg font-bold cursor-pointer"
-              >
-                ✕
+        <div className="scrim">
+          <div className="dialog">
+            <div className="dialog-hd">
+              <h3>Convert to balance adjustment</h3>
+              <button type="button" onClick={() => setConvertModalTx(null)} className="link-ink text-xs">
+                Close
               </button>
             </div>
 
-            <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-              Converting this transaction will <strong>remove it from your income/expenses</strong> and recreate it as a dedicated <strong>Balance Adjustment</strong> on the chosen account. This cleans your monthly savings rate and cash flow metrics.
-            </p>
+            <div className="dialog-bd space-y-4">
+              <p className="text-[13px] leading-relaxed text-ink-soft">
+                Converting this transaction will remove it from your income/expenses and recreate
+                it as a dedicated balance adjustment on the chosen account. This restores your
+                monthly savings rate and cash flow figures.
+              </p>
 
-            <form onSubmit={executeConvertToAdjustment} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Target Account *
-                </label>
-                <select
-                  required
-                  value={convertTargetAccountId}
-                  onChange={(e) => setConvertTargetAccountId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
-                >
-                  <option value="">Select account to adjust</option>
-                  {activeAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} (Current: Rs. {formatCurrency(accountBalances[acc.id] ?? 0)})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <form id="convert-tx-form" onSubmit={executeConvertToAdjustment} className="space-y-4">
+                <div>
+                  <label className="field-lbl">Target account</label>
+                  <select
+                    required
+                    value={convertTargetAccountId}
+                    onChange={(e) => setConvertTargetAccountId(e.target.value)}
+                    className="field"
+                  >
+                    <option value="">Select account to adjust</option>
+                    {activeAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} (current: Rs {formatCurrency(accountBalances[acc.id] ?? 0)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Signed Balance Correction Amount (NPR) *
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  required
-                  value={convertDeltaAmount}
-                  onChange={(e) => setConvertDeltaAmount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 font-mono"
-                />
-                <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Positive numbers increase the account balance; negative numbers decrease it.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setConvertModalTx(null)}
-                  className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!convertTargetAccountId}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-sky-600 text-white hover:bg-sky-500 disabled:opacity-50 cursor-pointer shadow-xs"
-                >
-                  Confirm Conversion
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="field-lbl">Signed balance correction (NPR)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={convertDeltaAmount}
+                    onChange={(e) => setConvertDeltaAmount(e.target.value)}
+                    className="field field-num"
+                  />
+                  <p className="field-hint">Positive increases the account balance; negative decreases it.</p>
+                </div>
+              </form>
+            </div>
+            <div className="dialog-ft">
+              <button type="button" onClick={() => setConvertModalTx(null)} className="btn btn-sm">
+                Cancel
+              </button>
+              <button type="submit" form="convert-tx-form" disabled={!convertTargetAccountId} className="btn btn-warn btn-sm">
+                Confirm conversion
+              </button>
+            </div>
           </div>
         </div>
       )}

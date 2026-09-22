@@ -18,13 +18,16 @@ interface FAQItem {
   answer: React.ReactNode;
 }
 
+const PROSE = 'space-y-2 text-xs sm:text-sm text-ink-soft leading-relaxed';
+const INLINE_LINK = 'text-khata underline underline-offset-2 hover:text-khata-hover';
+
 const FAQ_DATA: FAQItem[] = [
   {
     id: 'what-is-financedealer',
     category: 'General',
     question: 'What is Finance-Dealer and who is it for?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           <strong>Finance-Dealer</strong> is a privacy-first personal finance operating system tailored specifically for Nepali earners, savers, and NEPSE equity investors.
         </p>
@@ -39,7 +42,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'Privacy & Security',
     question: 'How is my data stored and is it private?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           Your financial privacy is our highest priority. All authenticated user data is stored in dedicated <strong>PostgreSQL</strong> databases managed through <strong>Supabase</strong> with <strong>Row-Level Security (RLS)</strong> enabled on every single table.
         </p>
@@ -54,7 +57,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'Privacy & Security',
     question: 'What happens to my data in Guest / Try-It mode?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           Guest Mode gives you instant, frictionless access to test all core features of Finance-Dealer without needing to create an account or provide an email address.
         </p>
@@ -63,8 +66,8 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <p>
           To permanently store and access your financial ledgers across multiple devices, simply{' '}
-          <Link href="/login" className="font-semibold text-emerald-600 dark:text-emerald-400 underline hover:opacity-80">
-            Sign In or Create a Free Account
+          <Link href="/login" className={INLINE_LINK}>
+            sign in or create a free account
           </Link>
           .
         </p>
@@ -76,7 +79,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'NEPSE & Markets',
     question: 'How does the NEPSE live price tracking work, and what should I do if prices look stale or unavailable?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           Finance-Dealer connects to live market price aggregators to fetch recent closing and active trading prices for Nepal Stock Exchange (NEPSE) listed securities. Live updates actively poll during regular trading hours (<strong>11:00 AM to 3:00 PM NPT, Sunday through Thursday</strong>).
         </p>
@@ -85,9 +88,9 @@ const FAQ_DATA: FAQItem[] = [
         </p>
         <ul className="list-disc list-inside space-y-1 pl-1">
           <li>
-            Click the <strong>&quot;Refresh Prices&quot;</strong> button in your{' '}
-            <Link href="/portfolio" className="font-semibold text-emerald-600 dark:text-emerald-400 underline hover:opacity-80">
-              NEPSE Portfolio
+            Use the <strong>&quot;Refresh prices&quot;</strong> control on the{' '}
+            <Link href="/portfolio" className={INLINE_LINK}>
+              floor sheet
             </Link>{' '}
             page to trigger an immediate live sync.
           </li>
@@ -106,7 +109,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'Email Reports & Insights',
     question: 'How do automated email reports work, and how do I opt in or opt out?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           Automated email reports provide a scheduled digest of your financial health delivered directly to your inbox via Resend. The summary includes your total monthly income, expenses, net savings rate, and an overview of your NEPSE equity portfolio performance.
         </p>
@@ -116,8 +119,8 @@ const FAQ_DATA: FAQItem[] = [
         <ol className="list-decimal list-inside space-y-1 pl-1">
           <li>
             Navigate to the{' '}
-            <Link href="/settings" className="font-semibold text-emerald-600 dark:text-emerald-400 underline hover:opacity-80">
-              Settings Page
+            <Link href="/settings" className={INLINE_LINK}>
+              settings page
             </Link>
             .
           </li>
@@ -136,13 +139,19 @@ const FAQ_DATA: FAQItem[] = [
     category: 'Email Reports & Insights',
     question: 'What is the "Insights" / recommendations section (and what is it NOT)?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           The <strong>Insights Engine</strong> on your Dashboard is a deterministic mathematical analysis tool. It processes your logged income, expense categories, and stock holdings using rule-based calculations to surface factual observations — such as flagging month-over-month spending increases, calculating your savings rate benchmark against recommended personal finance standards, or identifying high concentration risk in single NEPSE scrips.
         </p>
-        <p className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200">
-          <strong>Important Notice:</strong> Insights are strictly mathematical observations and organizational aids. They do <strong>NOT</strong> constitute certified financial, tax, legal, or investment advice. Finance-Dealer does not provide stock buy/sell recommendations or financial guarantees. Always conduct your own research and consult licensed professionals before making investment decisions.
-        </p>
+        <div className="note note-warn !text-xs sm:!text-sm">
+          <span>
+            <strong>Important:</strong> Insights are strictly mathematical observations and
+            organizational aids. They do <strong>not</strong> constitute certified financial, tax,
+            legal, or investment advice. Finance-Dealer does not provide stock buy/sell
+            recommendations or financial guarantees. Always conduct your own research and consult
+            licensed professionals before making investment decisions.
+          </span>
+        </div>
       </div>
     ),
   },
@@ -151,7 +160,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'Support',
     question: 'How do I report a bug, suggest a feature, or give feedback?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           We actively welcome your feedback, bug reports, and feature requests to make Finance-Dealer the best personal finance tool for Nepal!
         </p>
@@ -161,8 +170,8 @@ const FAQ_DATA: FAQItem[] = [
         <ul className="list-disc list-inside space-y-1 pl-1">
           <li>
             Submit a note through the built-in{' '}
-            <Link href="/contact" className="font-semibold text-emerald-600 dark:text-emerald-400 underline hover:opacity-80">
-              Contact &amp; Support Form
+            <Link href="/contact" className={INLINE_LINK}>
+              contact &amp; support form
             </Link>
             .
           </li>
@@ -170,7 +179,7 @@ const FAQ_DATA: FAQItem[] = [
             Email us directly at:{' '}
             <a
               href="mailto:support@financedealer.app"
-              className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 underline hover:opacity-80"
+              className="font-mono font-semibold text-khata underline underline-offset-2 hover:text-khata-hover"
             >
               support@financedealer.app
             </a>
@@ -187,7 +196,7 @@ const FAQ_DATA: FAQItem[] = [
     category: 'General',
     question: 'Is Finance-Dealer free to use?',
     answer: (
-      <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+      <div className={PROSE}>
         <p>
           Yes! Finance-Dealer is completely free to use for personal budgeting, income &amp; expense tracking, and NEPSE equity portfolio analytics.
         </p>
@@ -244,126 +253,79 @@ export default function FAQPage() {
   }, [selectedCategory, searchQuery]);
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-8 md:p-12">
-      <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10">
-        {/* Breadcrumb / Back Link */}
-        <div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
-
-        {/* Page Header */}
-        <div className="border-b border-zinc-200 dark:border-zinc-800 pb-6 sm:pb-8 space-y-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-600 text-white font-black text-sm shadow-xs">
-              FD
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              Frequently Asked Questions
-            </h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400 font-semibold border border-emerald-300 dark:border-emerald-800">
-              Knowledge Base
-            </span>
+    <main className="page bound">
+      <span className="binding-label">FAQ</span>
+      <div className="space-y-6">
+        <header className="masthead">
+          <div>
+            <h1>Frequently asked questions</h1>
+            <p className="masthead-note">
+              Answers on data privacy, guest mode, NEPSE live pricing, email reports, and how to
+              reach us.
+            </p>
           </div>
-          <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-400 max-w-3xl leading-relaxed">
-            Find answers to common questions about Finance-Dealer, NEPSE portfolio tracking, Supabase data security, guest mode, and automated financial reports.
-          </p>
-        </div>
+          <Link href="/" className="link-ink">
+            &larr; Dashboard
+          </Link>
+        </header>
 
-        {/* Filter Controls & Search */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 text-sm">
-                🔍
-              </div>
-              <input
-                type="text"
-                placeholder="Search questions (e.g. Supabase, NEPSE, Guest)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition shadow-xs"
-              />
+        <div className="space-y-3">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <input
+              type="text"
+              placeholder="Search questions"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="field sm:max-w-xs"
+              aria-label="Search questions"
+            />
+            <div className="flex items-center gap-3">
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 cursor-pointer"
-                >
+                <button type="button" onClick={() => setSearchQuery('')} className="link-ink">
                   Clear
                 </button>
               )}
-            </div>
-
-            {/* Expand / Collapse All */}
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={expandAll}
-                className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-xs"
-              >
-                Expand All
+              <button type="button" onClick={expandAll} className="btn btn-sm">
+                Expand all
               </button>
-              <button
-                type="button"
-                onClick={collapseAll}
-                className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer shadow-xs"
-              >
-                Collapse All
+              <button type="button" onClick={collapseAll} className="btn btn-sm">
+                Collapse all
               </button>
             </div>
           </div>
 
-          {/* Category Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-zinc-100 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 rounded-2xl">
-            {CATEGORIES.map((category) => {
-              const count =
-                category === 'All'
-                  ? FAQ_DATA.length
-                  : FAQ_DATA.filter((item) => item.category === category).length;
-              const isActive = selectedCategory === category;
+          <div className="scroll-x no-bar">
+            <div className="seg">
+              {CATEGORIES.map((category) => {
+                const count =
+                  category === 'All'
+                    ? FAQ_DATA.length
+                    : FAQ_DATA.filter((item) => item.category === category).length;
+                const isActive = selectedCategory === category;
 
-              return (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800'
-                  }`}
-                >
-                  <span>{category}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                      isActive
-                        ? 'bg-emerald-700/80 text-white'
-                        : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                    }`}
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setSelectedCategory(category)}
+                    aria-pressed={isActive}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    {category} <span className="opacity-70">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* FAQ Accordion List */}
-        <div className="space-y-3.5">
+        <div className="space-y-2.5">
           {filteredFaqs.length === 0 ? (
-            <div className="p-10 text-center rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3">
-              <div className="text-3xl">🔍</div>
-              <h3 className="text-sm sm:text-base font-bold text-zinc-800 dark:text-zinc-200">
-                No matching questions found
-              </h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
-                We couldn&apos;t find any questions matching &quot;{searchQuery}&quot;. Try adjusting your search query or select another category.
+            <div className="empty">
+              <p className="empty-mark">[ NO MATCHES ]</p>
+              <p className="empty-title">No matching questions found</p>
+              <p className="empty-body">
+                We couldn&apos;t find any questions matching &quot;{searchQuery}&quot;. Try a
+                different search or category.
               </p>
               <button
                 type="button"
@@ -371,9 +333,9 @@ export default function FAQPage() {
                   setSearchQuery('');
                   setSelectedCategory('All');
                 }}
-                className="mt-2 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition cursor-pointer"
+                className="btn btn-ink btn-sm mt-3"
               >
-                Reset Search Filters
+                Reset filters
               </button>
             </div>
           ) : (
@@ -381,52 +343,26 @@ export default function FAQPage() {
               const isOpen = !!openItems[faq.id];
 
               return (
-                <div
-                  key={faq.id}
-                  className={`border rounded-2xl transition-all overflow-hidden ${
-                    isOpen
-                      ? 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 shadow-xs'
-                      : 'bg-white/80 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
-                  }`}
-                >
+                <div key={faq.id} className="border border-rule bg-sheet transition-colors">
                   <button
                     type="button"
                     onClick={() => toggleItem(faq.id)}
                     aria-expanded={isOpen}
-                    className="w-full text-left p-4 sm:p-5 flex items-start justify-between gap-4 cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="flex w-full items-start justify-between gap-4 p-3.5 text-left transition-colors hover:bg-sheet-alt sm:p-4"
                   >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                          {faq.category}
-                        </span>
-                      </div>
-                      <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
+                    <div>
+                      <span className="tag mb-1.5 inline-block">{faq.category}</span>
+                      <h2 className="font-display text-base font-semibold leading-snug text-ink sm:text-lg">
                         {faq.question}
                       </h2>
                     </div>
-                    <span
-                      className={`shrink-0 mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 transition-transform duration-200 ${
-                        isOpen ? 'rotate-180 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : ''
-                      }`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3.5 w-3.5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
+                    <span className="mt-1 shrink-0 font-mono text-sm text-ink-faint" aria-hidden="true">
+                      {isOpen ? '−' : '+'}
                     </span>
                   </button>
 
                   {isOpen && (
-                    <div className="px-4 pb-5 sm:px-5 sm:pb-6 pt-1 border-t border-zinc-100 dark:border-zinc-800/80">
-                      {faq.answer}
-                    </div>
+                    <div className="border-t border-rule p-3.5 sm:p-4">{faq.answer}</div>
                   )}
                 </div>
               );
@@ -434,26 +370,20 @@ export default function FAQPage() {
           )}
         </div>
 
-        {/* Contact & Support Help Box */}
-        <section className="p-6 sm:p-8 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <span>💬</span>
-                <span>Still have questions or found an issue?</span>
+        <section className="sheet">
+          <div className="sheet-bd flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h3 className="font-display text-lg font-semibold text-ink">
+                Still have questions or found an issue?
               </h3>
-              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 max-w-xl">
-                We are constantly enhancing Finance-Dealer. If your question is not listed above or you would like to report a bug, drop us a message!
+              <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-ink-soft">
+                We are constantly improving Finance-Dealer. If your question isn&apos;t listed
+                above or you&apos;d like to report a bug, send us a note.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-              <Link
-                href="/contact"
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold transition shadow-xs"
-              >
-                Contact Support →
-              </Link>
-            </div>
+            <Link href="/contact" className="btn btn-ink shrink-0">
+              Contact support
+            </Link>
           </div>
         </section>
       </div>
