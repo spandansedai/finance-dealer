@@ -60,8 +60,26 @@ interface GuestModeContextType {
   addGuestAdjustment: (adj: Omit<BalanceAdjustment, 'id'>) => BalanceAdjustment;
   updateGuestAdjustment: (id: string, updates: Partial<BalanceAdjustment>) => void;
   deleteGuestAdjustment: (id: string) => void;
-  /** Appends a new guest NEPSE stock holding with a temporary random client ID */
-  addGuestHolding: (holding: Omit<StockHolding, 'id'>) => StockHolding;
+  /**
+   * Records a buy. If a holding in the same symbol already exists it is topped
+   * up with a correctly blended weighted-average cost; otherwise a new
+   * position is created.
+   */
+  buyGuestHolding: (buy: {
+    symbol: string;
+    companyName: string;
+    shares: number;
+    totalPurchasePrice: number;
+    currentPrice: number;
+    sector?: string;
+  }) => void;
+  /**
+   * Records a sell against an existing holding. Reduces shares (the average
+   * cost per share of the remaining position is unchanged), or removes the
+   * holding entirely on a full exit. Returns the realized gain/loss in NPR,
+   * or null if the holding could not be found.
+   */
+  sellGuestHolding: (id: string, sharesSold: number, totalSaleProceeds: number) => number | null;
   /** Updates the market price for an existing in-memory holding */
   updateGuestHoldingPrice: (id: string, currentPrice: number) => void;
   /** Removes a guest stock holding by ID */
@@ -181,16 +199,70 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * Adds a NEPSE stock position to guest memory.
+   * Records a buy against guest memory, blending into an existing same-symbol
+   * position (weighted-average cost) rather than creating a duplicate row.
    */
-  const addGuestHolding = (holding: Omit<StockHolding, 'id'>): StockHolding => {
-    const newHolding: StockHolding = {
-      ...holding,
-      // Generate a temporary unique guest identifier
-      id: `guest-holding-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    };
-    setGuestHoldings((prev) => [newHolding, ...prev]);
-    return newHolding;
+  const buyGuestHolding = (buy: {
+    symbol: string;
+    companyName: string;
+    shares: number;
+    totalPurchasePrice: number;
+    currentPrice: number;
+    sector?: string;
+  }) => {
+    setGuestHoldings((prev) => {
+      const existing = prev.find((h) => h.symbol === buy.symbol);
+      if (existing) {
+        const combinedShares = existing.shares + buy.shares;
+        const combinedInvested = existing.shares * existing.averagePurchasePrice + buy.totalPurchasePrice;
+        return prev.map((h) =>
+          h.id === existing.id
+            ? {
+                ...h,
+                shares: combinedShares,
+                averagePurchasePrice: combinedInvested / combinedShares,
+                currentPrice: buy.currentPrice,
+                sector: h.sector ?? buy.sector,
+              }
+            : h
+        );
+      }
+
+      const newHolding: StockHolding = {
+        id: `guest-holding-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        symbol: buy.symbol,
+        companyName: buy.companyName,
+        shares: buy.shares,
+        averagePurchasePrice: buy.totalPurchasePrice / buy.shares,
+        currentPrice: buy.currentPrice,
+        sector: buy.sector,
+      };
+      return [newHolding, ...prev];
+    });
+  };
+
+  /**
+   * Records a sell against an existing guest holding. The average cost per
+   * share of a weighted-average position does not change on a partial sell —
+   * only the quantity (and so total invested) shrinks — so this only needs to
+   * reduce shares, or remove the row entirely on a full exit.
+   */
+  const sellGuestHolding = (id: string, sharesSold: number, totalSaleProceeds: number): number | null => {
+    const holding = guestHoldings.find((h) => h.id === id);
+    if (!holding) return null;
+
+    const realizedGain = totalSaleProceeds - sharesSold * holding.averagePurchasePrice;
+    const remainingShares = holding.shares - sharesSold;
+
+    if (remainingShares <= 0) {
+      setGuestHoldings((prev) => prev.filter((h) => h.id !== id));
+    } else {
+      setGuestHoldings((prev) =>
+        prev.map((h) => (h.id === id ? { ...h, shares: remainingShares } : h))
+      );
+    }
+
+    return realizedGain;
   };
 
   /**
@@ -242,7 +314,8 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         addGuestAdjustment,
         updateGuestAdjustment,
         deleteGuestAdjustment,
-        addGuestHolding,
+        buyGuestHolding,
+        sellGuestHolding,
         updateGuestHoldingPrice,
         deleteGuestHolding,
         clearGuestHoldings,

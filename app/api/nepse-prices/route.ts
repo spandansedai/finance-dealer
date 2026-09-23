@@ -2,29 +2,52 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+interface CompanyMeta {
+  companyName: string;
+  sector: string;
+}
+
 interface PriceCache {
   timestamp: number;
   updatedAt: string;
   prices: Record<string, number>;
+  meta: Record<string, CompanyMeta>;
   count: number;
 }
 
 let globalCache: PriceCache | null = null;
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
 
-// Endpoints to attempt on the unofficial NEPSE API
+/**
+ * ShareHubNepal's public home-page feed. Confirmed working, unauthenticated,
+ * and returns every scrip traded in the current session (LTP, company name,
+ * and sector) in one payload — this is NEPSE's real official site's data
+ * (nepalstock.com.np) re-served without the obfuscated session token the
+ * official site requires, which is why it's used ahead of trying that token
+ * scheme directly. The `nepseapi.surajrimal.dev` mirror is kept as a second
+ * attempt in case this one is ever unreachable.
+ */
 const NEPSE_LIVE_ENDPOINTS = [
+  'https://sharehubnepal.com/live/api/v2/nepselive/home-page-data',
   'https://nepseapi.surajrimal.dev/LiveMarket',
   'https://nepseapi.surajrimal.dev/PriceVolume',
 ];
 
+interface ParsedNepseData {
+  prices: Record<string, number>;
+  meta: Record<string, CompanyMeta>;
+}
+
 /**
- * Extracts a normalized { [symbol: string]: number } map from raw API responses.
- * Handles multiple possible JSON response shapes defensively.
+ * Extracts normalized { prices, meta } maps from raw API responses. Handles
+ * multiple possible JSON response shapes defensively, including
+ * ShareHubNepal's `liveCompanyData` array (symbol, lastTradedPrice,
+ * securityName, sector) and the older unofficial-mirror shapes.
  */
-function parseNepsePrices(data: unknown): Record<string, number> {
+function parseNepsePrices(data: unknown): ParsedNepseData {
   const prices: Record<string, number> = {};
-  if (!data) return prices;
+  const meta: Record<string, CompanyMeta> = {};
+  if (!data) return { prices, meta };
 
   let items: unknown[] = [];
 
@@ -32,7 +55,9 @@ function parseNepsePrices(data: unknown): Record<string, number> {
     items = data;
   } else if (typeof data === 'object' && data !== null) {
     const obj = data as Record<string, any>;
-    if (Array.isArray(obj.data)) {
+    if (Array.isArray(obj.liveCompanyData)) {
+      items = obj.liveCompanyData;
+    } else if (Array.isArray(obj.data)) {
       items = obj.data;
     } else if (Array.isArray(obj.result)) {
       items = obj.result;
@@ -63,7 +88,7 @@ function parseNepsePrices(data: unknown): Record<string, number> {
           }
         }
       }
-      return prices;
+      return { prices, meta };
     }
   }
 
@@ -101,12 +126,21 @@ function parseNepsePrices(data: unknown): Record<string, number> {
     if (!isNaN(numPrice) && numPrice > 0) {
       prices[cleanSymbol] = numPrice;
     }
+
+    const rawName = rec.securityName ?? rec.companyName ?? rec.securityDescription;
+    const rawSector = rec.sector ?? rec.sectorName;
+    if (typeof rawName === 'string' && rawName.trim()) {
+      meta[cleanSymbol] = {
+        companyName: rawName.trim(),
+        sector: typeof rawSector === 'string' ? rawSector.trim() : '',
+      };
+    }
   }
 
-  return prices;
+  return { prices, meta };
 }
 
-async function fetchFromEndpoint(url: string): Promise<Record<string, number> | null> {
+async function fetchFromEndpoint(url: string): Promise<ParsedNepseData | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6000); // 6 seconds timeout
 
@@ -126,7 +160,7 @@ async function fetchFromEndpoint(url: string): Promise<Record<string, number> | 
 
     const json = await res.json();
     const parsed = parseNepsePrices(json);
-    if (Object.keys(parsed).length > 0) {
+    if (Object.keys(parsed.prices).length > 0) {
       return parsed;
     }
     return null;
@@ -147,6 +181,7 @@ export async function GET() {
         success: true,
         updatedAt: globalCache.updatedAt,
         prices: globalCache.prices,
+        meta: globalCache.meta,
         count: globalCache.count,
         cached: true,
       },
@@ -159,20 +194,21 @@ export async function GET() {
   }
 
   // Attempt endpoints sequentially
-  let fetchedPrices: Record<string, number> | null = null;
+  let fetched: ParsedNepseData | null = null;
   for (const endpoint of NEPSE_LIVE_ENDPOINTS) {
-    fetchedPrices = await fetchFromEndpoint(endpoint);
-    if (fetchedPrices && Object.keys(fetchedPrices).length > 0) {
+    fetched = await fetchFromEndpoint(endpoint);
+    if (fetched && Object.keys(fetched.prices).length > 0) {
       break;
     }
   }
 
-  if (fetchedPrices && Object.keys(fetchedPrices).length > 0) {
+  if (fetched && Object.keys(fetched.prices).length > 0) {
     globalCache = {
       timestamp: now,
       updatedAt: new Date().toISOString(),
-      prices: fetchedPrices,
-      count: Object.keys(fetchedPrices).length,
+      prices: fetched.prices,
+      meta: fetched.meta,
+      count: Object.keys(fetched.prices).length,
     };
 
     return NextResponse.json(
@@ -180,6 +216,7 @@ export async function GET() {
         success: true,
         updatedAt: globalCache.updatedAt,
         prices: globalCache.prices,
+        meta: globalCache.meta,
         count: globalCache.count,
       },
       {
@@ -197,6 +234,7 @@ export async function GET() {
         success: true,
         updatedAt: globalCache.updatedAt,
         prices: globalCache.prices,
+        meta: globalCache.meta,
         count: globalCache.count,
         stale: true,
         error: 'Live NEPSE price service unreachable, serving cached data.',
@@ -215,6 +253,7 @@ export async function GET() {
       success: false,
       updatedAt: null,
       prices: {},
+      meta: {},
       count: 0,
       error: 'Live NEPSE price service is currently unavailable.',
     },

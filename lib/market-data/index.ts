@@ -34,11 +34,19 @@ export interface NepseIndexSummary {
   turnover: number;
 }
 
+/** Company name and sector for a single NEPSE-listed symbol. */
+export interface NepseCompanyMeta {
+  companyName: string;
+  sector: string;
+}
+
 /** Response shape returned by the internal /api/nepse-prices route. */
 export interface NepsePricesApiResponse {
   success?: boolean;
   updatedAt: string | null;
   prices: Record<string, number>;
+  /** Company name/sector for symbols traded in the current session, keyed by symbol. */
+  meta?: Record<string, NepseCompanyMeta>;
   count?: number;
   cached?: boolean;
   stale?: boolean;
