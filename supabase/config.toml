@@ -1,0 +1,6 @@
+# Minimal Supabase CLI config. Run `supabase init` to generate the full file if you need local dev.
+project_id = "finance-dealer"
+
+[functions.monthly-summary]
+# Invoked by pg_cron, not by signed-in users; the function checks its own x-cron-secret header instead.
+verify_jwt = false
