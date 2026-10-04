@@ -1,47 +1,54 @@
 /**
- * @file lib/market-data/index.ts
- * @description NEPSE market data models and API wrappers.
- * Architectural rule: Direct client-side browser polling to external NEPSE endpoints is prohibited
- * to protect CORS, latency, and API rate limits. All market data transformations flow through
- * structured interfaces.
+ * NEPSE market data types and client wrappers
+ * Core Rule: Do not query NEPSE APIs directly from the browser UI.
+ * (NEPSE = Nepal Stock Exchange. These types describe the shape of data that a
+ * server-side integration populates; live prices overlay client views while
+ * falling back gracefully to user-saved manual prices.)
  */
 
-/**
- * Summary quote for an individual NEPSE listed company.
- */
+/** Snapshot of a single NEPSE-listed stock's trading data for one session. */
 export interface NepseStockSummary {
-  /** Stock ticker symbol (e.g. "NABIL", "NICA") */
   symbol: string;
-  /** Last Traded Price (LTP) in NPR */
+  /** Last Traded Price. */
   ltp: number;
-  /** Absolute point change from previous close */
+  /** Absolute price change vs the previous close. */
   pointChange: number;
-  /** Percentage change from previous close */
+  /** Percentage price change vs the previous close. */
   percentageChange: number;
-  /** Opening trading price for the session */
   openPrice: number;
-  /** Session high price */
   highPrice: number;
-  /** Session low price */
   lowPrice: number;
-  /** Total volume of shares traded */
+  /** Number of shares traded. */
   volume: number;
-  /** ISO timestamp of the quote update */
+  /** ISO timestamp of when this snapshot was captured. */
   updatedAt: string;
 }
 
-/**
- * Summary for NEPSE benchmark or sector indices (e.g. NEPSE Index, Banking Index).
- */
+/** Snapshot of a NEPSE market index (e.g. the overall NEPSE index). */
 export interface NepseIndexSummary {
-  /** Name or identifier of the index */
   index: string;
-  /** Current index value in points */
   currentValue: number;
-  /** Absolute point change */
   change: number;
-  /** Percentage change */
   percentChange: number;
-  /** Total market turnover in NPR */
+  /** Total value traded across the index for the session. */
   turnover: number;
+}
+
+/** Company name and sector for a single NEPSE-listed symbol. */
+export interface NepseCompanyMeta {
+  companyName: string;
+  sector: string;
+}
+
+/** Response shape returned by the internal /api/nepse-prices route. */
+export interface NepsePricesApiResponse {
+  success?: boolean;
+  updatedAt: string | null;
+  prices: Record<string, number>;
+  /** Company name/sector for symbols traded in the current session, keyed by symbol. */
+  meta?: Record<string, NepseCompanyMeta>;
+  count?: number;
+  cached?: boolean;
+  stale?: boolean;
+  error?: string;
 }

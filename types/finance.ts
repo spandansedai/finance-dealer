@@ -88,6 +88,55 @@ export interface Transaction {
   description: string;
   /** ISO date string (YYYY-MM-DD) */
   date: string;
+  /** Optional account or wallet associated with this income/expense entry. */
+  accountId?: string | null;
+  /** Original foreign-currency amount when this was a Dollar Card expense. */
+  originalAmount?: number | null;
+  originalCurrency?: 'USD' | null;
+  /** NPR per USD rate used when the transaction was recorded. */
+  exchangeRate?: number | null;
+  exchangeRateDate?: string | null;
+  exchangeRateStatus?: 'live' | 'stale' | 'manual' | null;
+  /** Whether this transaction has been verified against statements and locked against edits. */
+  verified?: boolean;
+}
+
+/** A user-managed place where money is held or spent from. */
+export type AccountType = 'bank' | 'wallet' | 'cash' | 'card' | 'dollar_card' | 'other';
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+}
+
+/** An internal movement between two of the user's accounts; never income or expense. */
+export interface AccountTransfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amount: number;
+  date: string;
+  note: string;
+  /** Whether this transfer has been verified against statements. */
+  verified?: boolean;
+}
+
+/**
+ * Dedicated balance adjustment record for reconciling account balances.
+ * Targets exactly one account with a signed amount (+/-) and never affects
+ * income/expense totals, savings calculations, or insights.
+ */
+export interface BalanceAdjustment {
+  id: string;
+  accountId: string;
+  /** Signed correction amount in NPR (positive increases balance, negative decreases balance) */
+  amount: number;
+  date: string;
+  note?: string;
+  /** Whether this balance adjustment has been verified against bank/wallet records. */
+  verified?: boolean;
+  createdAt?: string;
 }
 
 /**
@@ -134,6 +183,8 @@ export interface StockHolding {
   units?: number;
   /** Alias for averagePurchasePrice (legacy backwards compatibility) */
   buyPrice?: number;
+  isLivePrice?: boolean;
+  savedPrice?: number;
 }
 
 /**
@@ -164,6 +215,8 @@ export interface HoldingAnalytics {
   portfolioWeightPercentage: number;
   /** Optional sector classification */
   sector?: string;
+  isLivePrice?: boolean;
+  savedPrice?: number;
 }
 
 /**
@@ -206,4 +259,78 @@ export interface OverallFinancialSummary {
   totalProfitLossPercentage: number;
   /** Combined net position: active equity valuation + projected annual savings */
   totalLiquidAndAssets: number;
+}
+
+/**
+ * Recurring frequency interval for financial summary email dispatches.
+ */
+export type EmailFrequency = 'weekly' | 'monthly';
+
+/**
+ * User preference configuration for automated financial summary emails.
+ */
+export interface UserEmailPreferences {
+  /** UUID of the user in Supabase auth */
+  userId: string;
+  /** Destination email address */
+  email: string;
+  /** Whether recurring summary emails are enabled */
+  enabled: boolean;
+  /** Frequency interval (weekly or monthly) */
+  frequency: EmailFrequency;
+  /** Timestamp when the last summary report was dispatched */
+  lastSentAt?: string | null;
+  /** Creation timestamp */
+  createdAt?: string;
+  /** Last modification timestamp */
+  updatedAt?: string;
+}
+
+/**
+ * Structured dataset passed to the email generator for rendering financial summaries.
+ */
+export interface SummaryEmailReportData {
+  userEmail: string;
+  frequency: EmailFrequency;
+  reportDate: string;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  netSavings: number;
+  savingsRate: number;
+  totalInvested: number;
+  totalPortfolioValue: number;
+  totalProfitLoss: number;
+  totalProfitLossPercentage: number;
+  holdings: HoldingAnalytics[];
+  topExpenseCategories: Array<{ category: string; amount: number; percentage: number }>;
+  hasActivity: boolean;
+  appUrl: string;
+}
+
+/**
+ * Visual/sentiment classification for automated financial observations.
+ */
+export type InsightType = 'positive' | 'warning' | 'neutral' | 'info';
+
+/**
+ * Domain area classification for financial observations.
+ */
+export type InsightCategory = 'spending' | 'savings' | 'portfolio';
+
+/**
+ * Rule-based factual financial observation generated from user's data.
+ */
+export interface FinancialInsight {
+  /** Unique deterministic identifier for the observation */
+  id: string;
+  /** Sentiment type for styling */
+  type: InsightType;
+  /** Financial domain category */
+  category: InsightCategory;
+  /** Short punchy title */
+  title: string;
+  /** Fact-based observational message derived purely from user's figures */
+  message: string;
+  /** Optional metric badge or value tag */
+  metricTag?: string;
 }

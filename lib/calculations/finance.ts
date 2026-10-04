@@ -6,6 +6,9 @@
  */
 
 import {
+  Account,
+  AccountTransfer,
+  BalanceAdjustment,
   HoldingAnalytics,
   OverallFinancialSummary,
   PortfolioAnalyticsSummary,
@@ -100,6 +103,26 @@ export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: 
 }
 
 /**
+ * Formats a number using the South Asian lakh/crore digit grouping used across
+ * Nepal (2,2,3 from the right): 1500000 becomes "15,00,000", not "1,500,000".
+ *
+ * Note: the `en-NP` ICU locale groups in Western thousands, so `en-IN` is used
+ * here purely for its grouping rule. Both render Latin digits and the same
+ * comma separator, so the only difference is where the commas fall.
+ *
+ * @param amount - The numeric value to format.
+ * @param maximumFractionDigits - Decimal places to keep (default: 2).
+ * @returns Grouped number string without a currency prefix (e.g. "15,00,000").
+ */
+export function formatNepaliNumber(amount: number, maximumFractionDigits: number = 2): string {
+  const num = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  }).format(num);
+}
+
+/**
  * Formats a numerical amount into Nepali Rupees (NPR) string using standard South Asian numbering convention.
  *
  * @param amount - The numeric monetary value to format.
@@ -109,15 +132,33 @@ export function calculateSavingsSummary(monthlyIncome: number, monthlyExpenses: 
 export function formatNepaliCurrency(amount: number, prefix: string = 'Rs. '): string {
   const num = Number(amount) || 0;
   const isNegative = num < 0;
-  const absFormatted = new Intl.NumberFormat('en-NP', {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
-  }).format(Math.abs(num));
+  const absFormatted = formatNepaliNumber(Math.abs(num));
 
   if (isNegative) {
     return `-${prefix}${absFormatted}`;
   }
   return `${prefix}${absFormatted}`;
+}
+
+/**
+ * Abbreviates an amount for dense contexts such as chart axes, using Nepali
+ * scale words (lakh and crore) rather than the Western thousand/million.
+ *
+ * @param amount - The numeric value to abbreviate.
+ * @returns Compact string, e.g. "2.4Cr", "8.5L", or "45,000".
+ */
+export function formatNepaliCompact(amount: number): string {
+  const num = Number(amount) || 0;
+  const abs = Math.abs(num);
+  const sign = num < 0 ? '-' : '';
+
+  if (abs >= 10000000) {
+    return `${sign}${(abs / 10000000).toFixed(abs >= 100000000 ? 0 : 1)}Cr`;
+  }
+  if (abs >= 100000) {
+    return `${sign}${(abs / 100000).toFixed(abs >= 1000000 ? 0 : 1)}L`;
+  }
+  return `${sign}${formatNepaliNumber(abs, 0)}`;
 }
 
 /**
@@ -150,6 +191,114 @@ export function calculateCategoryBreakdown(
       acc[t.category] = (acc[t.category] || 0) + (Number(t.amount) || 0);
       return acc;
     }, {} as Record<string, number>);
+}
+
+/* ==========================================================================
+   Live Account Balance Calculation Engine
+   ========================================================================== */
+
+/**
+ * Derives live account balances by summing transactions, transfers, and dedicated balance adjustments.
+ * Balances are never statically stored; they are always dynamically derived.
+ *
+ * Formula per account:
+ *   Balance = (Sum of linked Income Transactions - Sum of linked Expense Transactions)
+ *           + (Sum of Transfers IN - Sum of Transfers OUT)
+ *           + (Sum of Balance Adjustments)
+ *
+ * @param accounts - Array of user accounts.
+ * @param transactions - Array of income and expense transactions.
+ * @param transfers - Array of internal account transfers.
+ * @param adjustments - Array of dedicated balance adjustments.
+ * @returns Map of account ID to live balance in NPR (rounded to 2 decimal places).
+ */
+export function calculateAccountBalances(
+  accounts: Account[],
+  transactions: Transaction[],
+  transfers: AccountTransfer[],
+  adjustments: BalanceAdjustment[] = []
+): Record<string, number> {
+  const balances: Record<string, number> = {};
+  for (const account of accounts) {
+    balances[account.id] = 0;
+  }
+
+  for (const tx of transactions) {
+    if (tx.accountId && tx.accountId in balances) {
+      const amount = Number(tx.amount) || 0;
+      if (tx.type === 'income') {
+        balances[tx.accountId] += amount;
+      } else if (tx.type === 'expense') {
+        balances[tx.accountId] -= amount;
+      }
+    }
+  }
+
+  for (const transfer of transfers) {
+    const amount = Number(transfer.amount) || 0;
+    if (transfer.fromAccountId in balances) {
+      balances[transfer.fromAccountId] -= amount;
+    }
+    if (transfer.toAccountId in balances) {
+      balances[transfer.toAccountId] += amount;
+    }
+  }
+
+  for (const adj of adjustments) {
+    const amount = Number(adj.amount) || 0;
+    if (adj.accountId in balances) {
+      balances[adj.accountId] += amount;
+    }
+  }
+
+  for (const id of Object.keys(balances)) {
+    balances[id] = Number(balances[id].toFixed(2));
+  }
+
+  return balances;
+}
+
+/**
+ * Derives the live balance of a single account from its linked transactions, transfers, and adjustments.
+ *
+ * @param accountId - Target account identifier.
+ * @param transactions - Array of income and expense transactions.
+ * @param transfers - Array of internal account transfers.
+ * @param adjustments - Array of dedicated balance adjustments.
+ * @returns Live balance in NPR rounded to 2 decimal places.
+ */
+export function calculateAccountBalance(
+  accountId: string,
+  transactions: Transaction[],
+  transfers: AccountTransfer[],
+  adjustments: BalanceAdjustment[] = []
+): number {
+  let balance = 0;
+
+  for (const tx of transactions) {
+    if (tx.accountId === accountId) {
+      const amount = Number(tx.amount) || 0;
+      balance += tx.type === 'income' ? amount : -amount;
+    }
+  }
+
+  for (const transfer of transfers) {
+    const amount = Number(transfer.amount) || 0;
+    if (transfer.fromAccountId === accountId) {
+      balance -= amount;
+    }
+    if (transfer.toAccountId === accountId) {
+      balance += amount;
+    }
+  }
+
+  for (const adj of adjustments) {
+    if (adj.accountId === accountId) {
+      balance += Number(adj.amount) || 0;
+    }
+  }
+
+  return Number(balance.toFixed(2));
 }
 
 /* ==========================================================================\n   Portfolio Analytics Pure Calculation Engine\n   ========================================================================== */
@@ -269,6 +418,8 @@ export function calculateHoldingAnalytics(
     profitLossPercentage,
     portfolioWeightPercentage,
     sector: holding.sector,
+    isLivePrice: holding.isLivePrice,
+    savedPrice: holding.savedPrice,
   };
 }
 
@@ -336,6 +487,8 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
       profitLossPercentage: plPercentage,
       portfolioWeightPercentage: weightPercentage,
       sector: item.holding.sector,
+      isLivePrice: item.holding.isLivePrice,
+      savedPrice: item.holding.savedPrice,
     };
   });
 
