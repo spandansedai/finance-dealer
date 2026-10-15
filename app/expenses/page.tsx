@@ -374,9 +374,9 @@ export default function ExpensesPage() {
 
     const txDate = date || new Date().toISOString().split('T')[0];
     const manualRate = Number(manualUsdRate);
-    const hasLiveRate = Boolean(fxRate?.success && fxRate.sell && fxRate.sell > 0 && !fxRate.stale);
-    const hasStaleRate = Boolean(fxRate?.success && fxRate.sell && fxRate.sell > 0 && fxRate.stale);
-    const effectiveUsdRate = hasLiveRate || hasStaleRate ? fxRate!.sell! : manualRate > 0 ? manualRate : null;
+    const hasLiveRate = Boolean(fxRate?.success && fxRate.buy && fxRate.buy > 0 && !fxRate.stale);
+    const hasStaleRate = Boolean(fxRate?.success && fxRate.buy && fxRate.buy > 0 && fxRate.stale);
+    const effectiveUsdRate = hasLiveRate || hasStaleRate ? fxRate!.buy! : manualRate > 0 ? manualRate : null;
 
     if (isDollarCardTx && !effectiveUsdRate) {
       setFormError('The NRB rate is unavailable. Enter a positive manual NPR-per-USD rate to log this Dollar Card expense.');
@@ -1151,10 +1151,10 @@ export default function ExpensesPage() {
                   <div className={`note ${fxRate?.stale ? 'note-warn' : ''}`}>
                     {fxLoading ? (
                       <span>Loading the official NRB USD rate&hellip;</span>
-                    ) : fxRate?.success && fxRate.sell ? (
+                    ) : fxRate?.success && fxRate.buy ? (
                       <span>
-                        <strong>{fxRate.stale ? 'Possibly stale NRB fallback: ' : 'Current NRB sell rate: '}</strong>
-                        1 USD &asymp; Rs {formatCurrency(fxRate.sell)}
+                        <strong>{fxRate.stale ? 'Possibly stale NRB fallback: ' : 'Current NRB buying rate: '}</strong>
+                        1 USD &asymp; Rs {formatCurrency(fxRate.buy)}
                         {fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}.{' '}
                         {fxRate.stale ? 'This is the last successfully fetched rate.' : `Used for this Dollar Card ${type === 'income' ? 'deposit' : 'expense'}.`}
                       </span>
@@ -1178,9 +1178,9 @@ export default function ExpensesPage() {
                         </div>
                       </div>
                     )}
-                    {amount && !fxLoading && ((fxRate?.success && fxRate.sell) || Number(manualUsdRate) > 0) && (
+                    {amount && !fxLoading && ((fxRate?.success && fxRate.buy) || Number(manualUsdRate) > 0) && (
                       <p className="w-full mt-1 fig fig-sm">
-                        Converted total: Rs {formatCurrency(Number(amount) * (fxRate?.success && fxRate.sell ? fxRate.sell : Number(manualUsdRate)))}
+                        Converted total: Rs {formatCurrency(Number(amount) * (fxRate?.success && fxRate.buy ? fxRate.buy : Number(manualUsdRate)))}
                       </p>
                     )}
                   </div>
