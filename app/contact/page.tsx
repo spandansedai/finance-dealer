@@ -1,228 +1,264 @@
 /**
  * @file app/contact/page.tsx
- * @description Contact & Support page with feedback form and frequently asked questions.
+ * @description Contact & Support page with a feedback form (delivered by
+ * /api/contact) and short answers to common questions.
  */
 
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  EmptyBody,
+  EmptyMark,
+  EmptyState,
+  EmptyTitle,
+  Heading,
+  Input,
+  Label,
+  LinkTile,
+  Notice,
+  PageHeader,
+  PageShell,
+  Select,
+  Textarea,
+} from '@/components/ui';
+
+const FAQS = [
+  {
+    q: 'What is Guest Mode and is my data saved?',
+    a: 'Guest Mode lets you try FinanceDealer instantly without an account. It opens with a sample book you can change freely. Everything stays in your browser memory, is never sent to our servers, and resets when you refresh. Sign in to keep your own records in Supabase.',
+  },
+  {
+    q: 'How frequently are NEPSE market prices updated?',
+    a: 'The floor sheet fetches recent NEPSE prices when it opens and every 3 minutes while it stays open. You can also refresh manually or override any fallback price directly in the portfolio table.',
+  },
+  {
+    q: 'How do automated email reports work?',
+    a: 'With an account, you can turn on summary emails in Settings. A scheduled job compiles your cash flow totals, savings rate and portfolio performance and sends a private summary via Resend.',
+  },
+  {
+    q: 'Does FinanceDealer charge any subscription fees?',
+    a: 'No. FinanceDealer is free to use for personal budgeting, expense logging, and NEPSE portfolio tracking.',
+  },
+];
 
 export default function ContactPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('Feedback');
   const [message, setMessage] = useState('');
+  const [website, setWebsite] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email || !message) return;
 
-    // Simulate clean submission
-    setSubmitted(true);
+    setSending(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, subject, message, website }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { success?: boolean; error?: string };
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Your message could not be sent. Please try again.');
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Your message could not be sent. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const faqs = [
-    {
-      q: 'What is Guest Mode and is my data saved?',
-      a: 'Guest Mode allows you to test FinanceDealer instantly without creating an account. All transactions and stock holdings in Guest Mode exist strictly in your browser RAM. Data is never sent to our servers and resets when you refresh the page. Sign in to save your data permanently to encrypted Supabase storage.',
-    },
-    {
-      q: 'How frequently are NEPSE market prices updated?',
-      a: 'FinanceDealer connects to market aggregators to fetch recent NEPSE closing and live trading prices with an active 3-minute poll cycle during market hours. You can also manually click the refresh button or override any fallback price directly in your portfolio table.',
-    },
-    {
-      q: 'How do automated email reports work?',
-      a: 'If you have an account, you can enable weekly or monthly summary digests in Settings. A scheduled cron job compiles your cash flow totals, savings rate, and portfolio performance and sends a beautiful, private summary report via Resend.',
-    },
-    {
-      q: 'Does FinanceDealer charge any subscription fees?',
-      a: 'FinanceDealer is currently free to use for personal budgeting, expense logging, and NEPSE portfolio tracking.',
-    },
-  ];
+  const resetForm = () => {
+    setSubmitted(false);
+    setName('');
+    setEmail('');
+    setMessage('');
+    setSubject('Feedback');
+  };
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-8 md:p-12">
-      <div className="max-w-4xl mx-auto space-y-10">
-        {/* Breadcrumb / Back Link */}
-        <div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-          >
-            ← Back to Dashboard
-          </Link>
-        </div>
+    <PageShell width="narrow">
+      <PageHeader
+        title="Contact & support"
+        back={{ href: '/', label: 'Dashboard' }}
+        description={
+          <>
+            Questions, feedback, a bug, or an idea for a Nepali bank or broker integration?
+            Send a note and it lands straight in the developer&rsquo;s inbox.
+          </>
+        }
+      />
 
-        {/* Page Header */}
-        <div className="border-b border-zinc-200 dark:border-zinc-800 pb-6 space-y-2">
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-            Contact &amp; Support
-          </h1>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-            Have questions, feedback, or need technical assistance? We are here to help.
-          </p>
-        </div>
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+        <Card as="section" className="lg:col-span-7">
+          <CardHeader>
+            <div>
+              <CardTitle>Send a message</CardTitle>
+              <CardSubtitle>Every field except subject is required.</CardSubtitle>
+            </div>
+          </CardHeader>
 
-        {/* Grid: Feedback Form + Contact Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Contact / Feedback Form */}
-          <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-xs space-y-4">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-              Send Feedback or Inquiry
-            </h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Submit a feature suggestion, report an issue, or ask a question.
-            </p>
-
+          <CardBody>
             {submitted ? (
-              <div className="p-6 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/20 text-center space-y-2">
-                <span className="text-3xl">✉️</span>
-                <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-                  Message Sent Successfully
-                </h3>
-                <p className="text-xs text-emerald-700 dark:text-emerald-300 max-w-sm mx-auto">
-                  Thank you for reaching out! We value your feedback and will review your note promptly.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSubmitted(false);
-                    setName('');
-                    setEmail('');
-                    setMessage('');
-                  }}
-                  className="mt-3 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500 transition cursor-pointer"
-                >
-                  Send Another Message
-                </button>
-              </div>
+              <EmptyState>
+                <EmptyMark>SENT</EmptyMark>
+                <EmptyTitle>Thanks, your message is on its way</EmptyTitle>
+                <EmptyBody>
+                  Replies go to <span className="fig fig-sm">{email}</span>, so keep an eye on
+                  that inbox (and its spam folder).
+                </EmptyBody>
+                <Button size="sm" type="button" onClick={resetForm} className="mt-4">
+                  Send another message
+                </Button>
+              </EmptyState>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="name" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                    Your Name *
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    required
-                    placeholder="e.g. Aarav Sharma"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
-                  />
+                {error && (
+                  <Notice tone="loss" role="alert">
+                    {error}
+                  </Notice>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label htmlFor="name">
+                      Your name
+                    </Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      required
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      disabled={sending}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">
+                      Email address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={sending}
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label htmlFor="email" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                    Email Address *
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    placeholder="e.g. aarav@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="subject" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  <Label htmlFor="subject">
                     Subject
-                  </label>
-                  <select
+                  </Label>
+                  <Select
                     id="subject"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
+                    disabled={sending}
                   >
-                    <option value="Feedback">Product Feedback</option>
-                    <option value="Bug Report">Bug Report</option>
-                    <option value="Feature Request">Feature Request (NEPSE / Taxes)</option>
-                    <option value="Privacy Concern">Privacy or Account Query</option>
+                    <option value="Feedback">Product feedback</option>
+                    <option value="Bug Report">Bug report</option>
+                    <option value="Feature Request">Feature request (NEPSE / taxes)</option>
+                    <option value="Privacy Concern">Privacy or account query</option>
                     <option value="Other">Other</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label htmlFor="message" className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                    Message *
-                  </label>
-                  <textarea
+                  <Label htmlFor="message">
+                    Message
+                  </Label>
+                  <Textarea
                     id="message"
                     required
-                    rows={4}
-                    placeholder="Describe your inquiry or feedback..."
+                    rows={5}
+                    maxLength={5000}
+                    placeholder="What would you like to tell us?"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 transition"
+                    disabled={sending}
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-xs cursor-pointer active:scale-98"
-                >
-                  Submit Note
-                </button>
+                {/* Honeypot for bots; hidden from people and assistive tech. */}
+                <div className="hidden" aria-hidden="true">
+                  <label htmlFor="website">Website</label>
+                  <input
+                    id="website"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
+                </div>
+
+                <Button variant="primary" size="lg" block type="submit" disabled={sending}>
+                  {sending ? 'Sending…' : 'Send message'}
+                </Button>
               </form>
             )}
-          </div>
+          </CardBody>
+        </Card>
 
-          {/* Contact Details & Info */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-3 shadow-xs">
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                Direct Channels
-              </h3>
-              <div className="space-y-2 text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
-                <p>
-                  📍 <strong>Location:</strong> Kathmandu, Nepal
-                </p>
-                <p>
-                  📧 <strong>Email:</strong> support@financedealer.app
-                </p>
-                <p>
-                  ⚡ <strong>Platform Version:</strong> v1.3 Production
-                </p>
-              </div>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/20 space-y-2 text-xs text-emerald-900 dark:text-emerald-300">
-              <p className="font-bold">🇳🇵 Built with Local Context</p>
-              <p>
-                Have ideas for specific Nepali banking integrations, ConnectIPS workflows, or NEPSE brokers? Send us a suggestion!
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* FAQ Section */}
-        <section className="space-y-5 pt-4">
-          <h2 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Frequently Asked Questions
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {faqs.map((faq, idx) => (
-              <div
-                key={idx}
-                className="p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2 shadow-xs"
-              >
-                <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                  {faq.q}
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  {faq.a}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <aside className="space-y-4 lg:col-span-5">
+          <LinkTile href="/faq" icon="?" title="Browse the FAQ" titleAs="span">
+            Answers on privacy, Guest Mode, NEPSE prices, Dollar Card rates and email reports.
+          </LinkTile>
+          <LinkTile href="/privacy" icon="RLS" title="Privacy & your data" titleAs="span">
+            What is stored, where it lives, and how to ask for your account to be deleted.
+          </LinkTile>
+          <Notice tone="brand" className="block">
+            <p className="font-semibold">Built for Nepal</p>
+            <p className="mt-1 text-ink-soft">
+              Ideas for ConnectIPS workflows, specific banks or NEPSE brokers are especially
+              welcome.
+            </p>
+          </Notice>
+        </aside>
       </div>
-    </main>
+
+      <Card as="section">
+        <CardHeader>
+          <CardTitle>Quick answers</CardTitle>
+          <ButtonLink variant="link" href="/faq">
+            All questions
+          </ButtonLink>
+        </CardHeader>
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {FAQS.map((faq, idx) => (
+            <CardBody
+              key={faq.q}
+              className={`space-y-1.5 border-rule ${idx < FAQS.length - 1 ? 'border-b' : ''} ${
+                idx >= FAQS.length - 2 ? 'md:border-b-0' : ''
+              } ${idx % 2 === 0 ? 'md:border-r' : ''}`}
+            >
+              <Heading as="h3" size="sm">{faq.q}</Heading>
+              <p className="text-body leading-relaxed text-ink-soft">{faq.a}</p>
+            </CardBody>
+          ))}
+        </div>
+      </Card>
+
+    </PageShell>
   );
 }

@@ -8,7 +8,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import {
   Account,
   AccountTransfer,
@@ -28,6 +27,36 @@ import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 import { AccountsManager } from '@/components/AccountsManager';
 import { LedgerRow } from '@/components/LedgerRow';
+import {
+  AffixField,
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  EmptyBody,
+  EmptyMark,
+  EmptyState,
+  EmptyTitle,
+  FieldHint,
+  Input,
+  Label,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Notice,
+  PageHeader,
+  PageShell,
+  Panel,
+  Select,
+  Stamp,
+  Tag,
+} from '@/components/ui';
 
 /**
  * Interface representing a raw transaction record from the database.
@@ -153,6 +182,11 @@ function isPotentialFixup(tx: Transaction): boolean {
   return keywords.some((k) => note.includes(k) || cat.includes(k));
 }
 
+const NO_ACCOUNTS: Account[] = [];
+const NO_TRANSACTIONS: Transaction[] = [];
+const NO_TRANSFERS: AccountTransfer[] = [];
+const NO_ADJUSTMENTS: BalanceAdjustment[] = [];
+
 export default function ExpensesPage() {
   const {
     guestTransactions,
@@ -220,10 +254,13 @@ export default function ExpensesPage() {
   const [convertTargetAccountId, setConvertTargetAccountId] = useState<string>('');
   const [convertDeltaAmount, setConvertDeltaAmount] = useState<string>('');
 
-  const activeAccounts = userId ? dbAccounts : guestAccounts;
-  const activeTransactions = userId ? dbTransactions : guestTransactions;
-  const activeTransfers = userId ? dbTransfers : guestTransfers;
-  const activeAdjustments = userId ? dbAdjustments : guestAdjustments;
+  // Guest (sample) data only once the auth check has finished with no user, so a
+  // signed-in user never sees it flash before their own records load.
+  const isGuest = authChecked && !userId;
+  const activeAccounts = userId ? dbAccounts : isGuest ? guestAccounts : NO_ACCOUNTS;
+  const activeTransactions = userId ? dbTransactions : isGuest ? guestTransactions : NO_TRANSACTIONS;
+  const activeTransfers = userId ? dbTransfers : isGuest ? guestTransfers : NO_TRANSFERS;
+  const activeAdjustments = userId ? dbAdjustments : isGuest ? guestAdjustments : NO_ADJUSTMENTS;
 
   const selectedAccount = activeAccounts.find((account) => account.id === accountId);
   // Dollar Card FX applies the same way whether the entry is income (e.g. a USD
@@ -943,668 +980,665 @@ export default function ExpensesPage() {
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   return (
-    <main className="page bound">
-      <span className="binding-label">FY 2083/84</span>
-      <div className="space-y-6">
-        {/* Masthead */}
-        <header className="masthead">
-          <div>
-            <h1>Income &amp; expenses</h1>
-            <p className="masthead-note">
-              Write an entry, reconcile account balances against a statement, and record Dollar
-              Card spending at the NRB rate.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="stamp">
-              {activeTransactions.length}
-              <span className="hair" aria-hidden="true" />
-              {activeTransactions.length === 1 ? 'entry' : 'entries'}
-            </span>
-            <Link href="/" className="btn btn-sm">
+    <PageShell>
+      {/* Masthead */}
+      <PageHeader
+        title="Income & expenses"
+        description={
+          <>
+            Write an entry, reconcile account balances against a statement, and record Dollar
+            Card spending at the NRB rate.
+          </>
+        }
+        actions={
+          <>
+            <Stamp
+              label={activeTransactions.length}
+              value={activeTransactions.length === 1 ? 'entry' : 'entries'}
+            />
+            <ButtonLink size="sm" href="/">
               Overview
-            </Link>
-          </div>
-        </header>
+            </ButtonLink>
+          </>
+        }
+      />
 
-        {loadError && <div className="note note-loss">{loadError}</div>}
-        {accountError && <div className="note note-loss">{accountError}</div>}
-        {accountMessage && (
-          <div className="note note-gain">
-            <span>{accountMessage}</span>
-            <button
-              type="button"
-              onClick={() => setAccountMessage(null)}
-              className="link-ink text-xs font-bold"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-        {loadingTransactions && <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>}
+      {loadError && <Notice tone="loss">{loadError}</Notice>}
+      {accountError && <Notice tone="loss">{accountError}</Notice>}
+      {accountMessage && (
+        <Notice tone="gain">
+          <span>{accountMessage}</span>
+          <Button
+            variant="link"
+            size="sm"
+            type="button"
+            onClick={() => setAccountMessage(null)}
+          >
+            Dismiss
+          </Button>
+        </Notice>
+      )}
+      {loadingTransactions && <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>}
 
-        {/* Guest Mode Notice */}
-        {!userId && authChecked && (
-          <div className="note note-warn">
-            <span>
-              This is a <strong>scratch page</strong>. Entries, transfers and reconciliations stay
-              in memory and are gone when you reload.
-            </span>
-            <Link href="/login" className="btn btn-warn btn-sm">
-              Sign in to keep them
-            </Link>
-          </div>
-        )}
+      {/* Guest Mode Notice */}
+      {!userId && authChecked && (
+        <Notice tone="warn">
+          <span>
+            This is a <strong>sample book</strong>. Add, edit, verify or delete anything; entries,
+            transfers and reconciliations stay in this tab and reset when you reload.
+          </span>
+          <ButtonLink variant="warn" size="sm" href="/login">
+            Sign in to keep your own
+          </ButtonLink>
+        </Notice>
+      )}
 
-        {/* Monthly cash flow */}
-        <section className="sheet">
-          <div className="sheet-hd">
-            <h2 className="sheet-title">
-              Cash flow this month
-            </h2>
-            <span className="sheet-sub">{activeTransactions.length} recorded entries</span>
+      {/* Monthly cash flow */}
+      <Card as="section">
+        <CardHeader>
+          <CardTitle>
+            Cash flow this month
+          </CardTitle>
+          <CardSubtitle as="span">{activeTransactions.length} recorded entries</CardSubtitle>
+        </CardHeader>
+        <CardBody>
+          <div className="ledger">
+            <LedgerRow
+              label="Income"
+              amount={totalIncome}
+              unit="Rs"
+              tone="gain"
+              tag={`${activeTransactions.filter((t) => t.type === 'income').length} sources`}
+              note="Salary, side work, freelance and returns."
+            />
+            <LedgerRow
+              label="Expenses"
+              amount={totalExpenses}
+              unit="Rs"
+              tone="loss"
+              tag={`${activeTransactions.filter((t) => t.type === 'expense').length} logged`}
+              note="Rent, living costs, bills and Dollar Card FX."
+            />
+            <LedgerRow
+              label="Net investable surplus"
+              amount={netSurplus}
+              unit="Rs"
+              tone={netSurplus >= 0 ? 'gain' : 'loss'}
+              total
+              large
+              note={`${savingsRate}% savings rate. Unallocated capital, ready for NEPSE.`}
+            />
           </div>
-          <div className="sheet-bd">
-            <div className="ledger">
-              <LedgerRow
-                label="Income"
-                amount={totalIncome}
-                unit="Rs"
-                tone="gain"
-                tag={`${activeTransactions.filter((t) => t.type === 'income').length} sources`}
-                note="Salary, side work, freelance and returns."
-              />
-              <LedgerRow
-                label="Expenses"
-                amount={totalExpenses}
-                unit="Rs"
-                tone="loss"
-                tag={`${activeTransactions.filter((t) => t.type === 'expense').length} logged`}
-                note="Rent, living costs, bills and Dollar Card FX."
-              />
-              <LedgerRow
-                label="Net investable surplus"
-                amount={netSurplus}
-                unit="Rs"
-                tone={netSurplus >= 0 ? 'gain' : 'loss'}
-                total
-                large
-                note={`${savingsRate}% savings rate. Unallocated capital, ready for NEPSE.`}
-              />
+        </CardBody>
+      </Card>
+
+      {/* Data Cleanup Guidance Banner (Only shown when potential fix-ups are detected) */}
+      {potentialFixupsCount > 0 && (
+        <Notice tone="warn">
+          <span>
+            <strong>{potentialFixupsCount} past entries look like balance fix-ups</strong> —
+            manual corrections such as negative cash transactions that distort your monthly
+            income/expense totals. Use the &quot;Fix-ups&quot; tab below to convert them into
+            dedicated balance adjustments.
+          </span>
+          <Button variant="warn" size="sm" type="button" onClick={() => setFilterType('fixups')}>
+            Review fix-ups ({potentialFixupsCount})
+          </Button>
+        </Notice>
+      )}
+
+      {/* Accounts & Balance Adjustments Manager */}
+      <AccountsManager
+        accounts={activeAccounts}
+        balances={accountBalances}
+        transfers={activeTransfers}
+        adjustments={activeAdjustments}
+        onAdd={handleAddAccount}
+        onRename={handleRenameAccount}
+        onDelete={handleDeleteAccount}
+        onTransfer={handleTransfer}
+        onAdjustBalance={handleAdjustBalance}
+        onToggleVerifyTransfer={handleToggleVerifyTransfer}
+        onToggleVerifyAdjustment={handleToggleVerifyAdjustment}
+        onDeleteTransfer={handleDeleteTransfer}
+        onDeleteAdjustment={handleDeleteAdjustment}
+      />
+
+      {/* Transaction Input Form & Logged List */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Form */}
+        <Card className="lg:col-span-5">
+          <CardHeader>
+            <div>
+              <CardTitle>Write an entry</CardTitle>
+              <CardSubtitle>
+                {!userId && 'Guest mode. '}
+                Link it to an account for a live balance.
+              </CardSubtitle>
             </div>
-          </div>
-        </section>
+          </CardHeader>
+          <CardBody>
+            {formError && <Notice tone="loss" className="mb-4">{formError}</Notice>}
 
-        {/* Data Cleanup Guidance Banner (Only shown when potential fix-ups are detected) */}
-        {potentialFixupsCount > 0 && (
-          <div className="note note-warn">
-            <span>
-              <strong>{potentialFixupsCount} past entries look like balance fix-ups</strong> —
-              manual corrections such as negative cash transactions that distort your monthly
-              income/expense totals. Use the &quot;Fix-ups&quot; tab below to convert them into
-              dedicated balance adjustments.
-            </span>
-            <button type="button" onClick={() => setFilterType('fixups')} className="btn btn-warn btn-sm">
-              Review fix-ups ({potentialFixupsCount})
-            </button>
-          </div>
-        )}
-
-        {/* Accounts & Balance Adjustments Manager */}
-        <AccountsManager
-          accounts={activeAccounts}
-          balances={accountBalances}
-          transfers={activeTransfers}
-          adjustments={activeAdjustments}
-          onAdd={handleAddAccount}
-          onRename={handleRenameAccount}
-          onDelete={handleDeleteAccount}
-          onTransfer={handleTransfer}
-          onAdjustBalance={handleAdjustBalance}
-          onToggleVerifyTransfer={handleToggleVerifyTransfer}
-          onToggleVerifyAdjustment={handleToggleVerifyAdjustment}
-          onDeleteTransfer={handleDeleteTransfer}
-          onDeleteAdjustment={handleDeleteAdjustment}
-        />
-
-        {/* Transaction Input Form & Logged List */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-          {/* Form */}
-          <div className="sheet lg:col-span-5">
-            <div className="sheet-hd">
-              <div>
-                <h2 className="sheet-title">Write an entry</h2>
-                <p className="sheet-sub">
-                  {!userId && 'Guest mode. '}
-                  Link it to an account for a live balance.
-                </p>
-              </div>
-            </div>
-            <div className="sheet-bd">
-              {formError && <div className="note note-loss mb-4">{formError}</div>}
-
-              <form onSubmit={handleAddTransaction} className="space-y-4">
-                {/* Type Switcher */}
-                <div className="seg" role="group" aria-label="Transaction type">
-                  <button
-                    type="button"
-                    aria-pressed={type === 'income'}
-                    onClick={() => handleTypeChange('income')}
-                    className="flex-1"
-                  >
-                    + Income
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={type === 'expense'}
-                    onClick={() => handleTypeChange('expense')}
-                    className="flex-1"
-                  >
-                    &minus; Expense
-                  </button>
-                </div>
-
-                {/* Account selection — first, so choosing a Dollar Card account
-                    immediately switches the Amount field below to ask for USD,
-                    instead of silently reinterpreting a number already typed. */}
-                <div>
-                  <label htmlFor="account" className="field-lbl">
-                    Account <span className="text-ink-faint">(optional)</span>
-                  </label>
-                  <select
-                    id="account"
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                    className="field"
-                  >
-                    <option value="">No account selected</option>
-                    {activeAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name} (Rs {formatCurrency(accountBalances[account.id] ?? 0)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Amount Field */}
-                <div>
-                  <label htmlFor="amount" className="field-lbl">
-                    {isDollarCardTx ? 'Amount (USD)' : 'Amount (NPR)'}
-                  </label>
-                  <div className="field-wrap">
-                    <span className="prefix">{isDollarCardTx ? 'USD' : 'Rs'}</span>
-                    <input
-                      id="amount"
-                      type="number"
-                      step="any"
-                      min="0"
-                      placeholder={isDollarCardTx ? 'e.g. 12.99' : 'e.g. 5000'}
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      required
-                      className="field field-num"
-                    />
-                  </div>
-                </div>
-
-                {isDollarCardTx && (
-                  <div className={`note ${fxRate?.stale ? 'note-warn' : ''}`}>
-                    {fxLoading ? (
-                      <span>Loading the official NRB USD rate&hellip;</span>
-                    ) : fxRate?.success && fxRate.buy ? (
-                      <span>
-                        <strong>{fxRate.stale ? 'Possibly stale NRB fallback: ' : 'Current NRB buying rate: '}</strong>
-                        1 USD &asymp; Rs {formatCurrency(fxRate.buy)}
-                        {fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}.{' '}
-                        {fxRate.stale ? 'This is the last successfully fetched rate.' : `Used for this Dollar Card ${type === 'income' ? 'deposit' : 'expense'}.`}
-                      </span>
-                    ) : (
-                      <div className="w-full space-y-2">
-                        <p>
-                          <strong>NRB rate unavailable: </strong>
-                          {fxRate?.error ?? 'No rate could be loaded.'} Enter the manual rate below.
-                        </p>
-                        <div>
-                          <label className="field-lbl">Manual NPR per USD</label>
-                          <input
-                            type="number"
-                            min="0.000001"
-                            step="0.000001"
-                            value={manualUsdRate}
-                            onChange={(event) => setManualUsdRate(event.target.value)}
-                            placeholder="e.g. 140.25"
-                            className="field field-num"
-                          />
-                        </div>
-                      </div>
-                    )}
-                    {amount && !fxLoading && ((fxRate?.success && fxRate.buy) || Number(manualUsdRate) > 0) && (
-                      <p className="w-full mt-1 fig fig-sm">
-                        Converted total: Rs {formatCurrency(Number(amount) * (fxRate?.success && fxRate.buy ? fxRate.buy : Number(manualUsdRate)))}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Category Field */}
-                <div>
-                  <label htmlFor="category" className="field-lbl">
-                    Category
-                  </label>
-                  <select
-                    id="category"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="field"
-                  >
-                    {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label htmlFor="description" className="field-lbl">
-                    Description
-                  </label>
-                  <input
-                    id="description"
-                    type="text"
-                    placeholder={type === 'income' ? 'e.g. Monthly salary from company' : 'e.g. Groceries at Bhatbhateni'}
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                    className="field"
-                  />
-                </div>
-
-                {/* Date */}
-                <div>
-                  <label htmlFor="date" className="field-lbl">
-                    Date
-                  </label>
-                  <input
-                    id="date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="field"
-                  />
-                </div>
-
-                <button type="submit" disabled={submitting} className="btn btn-ink btn-block">
-                  {submitting ? 'Saving…' : `Add ${type === 'income' ? 'income' : 'expense'} entry`}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Logged Transactions Table */}
-          <div className="sheet lg:col-span-7">
-            {/* Table Header Controls */}
-            <div className="sheet-hd flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="sheet-title">Logged transactions</h2>
-                  <p className="sheet-sub">
-                    {totalItems === 0
-                      ? '0 records'
-                      : `Showing ${startIndex + 1}–${endIndex} of ${totalItems} records${
-                          totalItems !== activeTransactions.length ? ` (filtered from ${activeTransactions.length})` : ''
-                        }`}
-                  </p>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className="seg self-start sm:self-auto">
-                  <button type="button" aria-pressed={filterType === 'all'} onClick={() => setFilterType('all')}>
-                    All ({activeTransactions.length})
-                  </button>
-                  <button type="button" aria-pressed={filterType === 'income'} onClick={() => setFilterType('income')}>
-                    Income ({activeTransactions.filter((t) => t.type === 'income').length})
-                  </button>
-                  <button type="button" aria-pressed={filterType === 'expense'} onClick={() => setFilterType('expense')}>
-                    Expenses ({activeTransactions.filter((t) => t.type === 'expense').length})
-                  </button>
-                  {potentialFixupsCount > 0 && (
-                    <button type="button" aria-pressed={filterType === 'fixups'} onClick={() => setFilterType('fixups')}>
-                      Fix-ups ({potentialFixupsCount})
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Filters Row: Account Selector + Search */}
-              <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2">
-                <select
-                  value={filterAccount}
-                  onChange={(e) => setFilterAccount(e.target.value)}
-                  className="field"
+            <form onSubmit={handleAddTransaction} className="space-y-4">
+              {/* Type Switcher */}
+              <div className="seg" role="group" aria-label="Transaction type">
+                <button
+                  type="button"
+                  aria-pressed={type === 'income'}
+                  onClick={() => handleTypeChange('income')}
+                  className="flex-1"
                 >
-                  <option value="all">All accounts</option>
-                  <option value="unassigned">Unassigned (no account)</option>
-                  {activeAccounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
+                  + Income
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={type === 'expense'}
+                  onClick={() => handleTypeChange('expense')}
+                  className="flex-1"
+                >
+                  &minus; Expense
+                </button>
+              </div>
+
+              {/* Account selection — first, so choosing a Dollar Card account
+                  immediately switches the Amount field below to ask for USD,
+                  instead of silently reinterpreting a number already typed. */}
+              <div>
+                <Label htmlFor="account">
+                  Account <span className="text-ink-faint">(optional)</span>
+                </Label>
+                <Select
+                  id="account"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                >
+                  <option value="">No account selected</option>
+                  {activeAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} (Rs {formatCurrency(accountBalances[account.id] ?? 0)})
                     </option>
                   ))}
-                </select>
-                <input
+                </Select>
+              </div>
+
+              {/* Amount Field */}
+              <div>
+                <Label htmlFor="amount">
+                  {isDollarCardTx ? 'Amount (USD)' : 'Amount (NPR)'}
+                </Label>
+                <AffixField prefix={isDollarCardTx ? 'USD' : 'Rs'}>
+                  <Input
+                    numeric
+                    id="amount"
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder={isDollarCardTx ? 'e.g. 12.99' : 'e.g. 5000'}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                  />
+                </AffixField>
+              </div>
+
+              {isDollarCardTx && (
+                <Notice tone={fxRate?.stale ? 'warn' : 'neutral'}>
+                  {fxLoading ? (
+                    <span>Loading the official NRB USD rate&hellip;</span>
+                  ) : fxRate?.success && fxRate.buy ? (
+                    <span>
+                      <strong>{fxRate.stale ? 'Possibly stale NRB fallback: ' : 'Current NRB buying rate: '}</strong>
+                      1 USD &asymp; Rs {formatCurrency(fxRate.buy)}
+                      {fxRate.asOf ? `, rate date ${fxRate.asOf}` : ''}.{' '}
+                      {fxRate.stale ? 'This is the last successfully fetched rate.' : `Used for this Dollar Card ${type === 'income' ? 'deposit' : 'expense'}.`}
+                    </span>
+                  ) : (
+                    <div className="w-full space-y-2">
+                      <p>
+                        <strong>NRB rate unavailable: </strong>
+                        {fxRate?.error ?? 'No rate could be loaded.'} Enter the manual rate below.
+                      </p>
+                      <div>
+                        <Label>Manual NPR per USD</Label>
+                        <Input
+                          numeric
+                          type="number"
+                          min="0.000001"
+                          step="0.000001"
+                          value={manualUsdRate}
+                          onChange={(event) => setManualUsdRate(event.target.value)}
+                          placeholder="e.g. 154.56"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {amount && !fxLoading && ((fxRate?.success && fxRate.buy) || Number(manualUsdRate) > 0) && (
+                    <p className="w-full mt-1 fig fig-sm">
+                      Converted total: Rs {formatCurrency(Number(amount) * (fxRate?.success && fxRate.buy ? fxRate.buy : Number(manualUsdRate)))}
+                    </p>
+                  )}
+                </Notice>
+              )}
+
+              {/* Category Field */}
+              <div>
+                <Label htmlFor="category">
+                  Category
+                </Label>
+                <Select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  {(type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <Label htmlFor="description">
+                  Description
+                </Label>
+                <Input
+                  id="description"
                   type="text"
-                  placeholder="Search by description or category&hellip;"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="field"
+                  placeholder={type === 'income' ? 'e.g. Monthly salary from company' : 'e.g. Groceries at Bhatbhateni'}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
                 />
+              </div>
+
+              {/* Date */}
+              <div>
+                <Label htmlFor="date">
+                  Date
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+
+              <Button variant="primary" block type="submit" disabled={submitting}>
+                {submitting ? 'Saving…' : `Add ${type === 'income' ? 'income' : 'expense'} entry`}
+              </Button>
+            </form>
+          </CardBody>
+        </Card>
+
+        {/* Logged Transactions Table */}
+        <Card className="lg:col-span-7">
+          {/* Table Header Controls */}
+          <CardHeader className="flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle>Logged transactions</CardTitle>
+                <CardSubtitle>
+                  {totalItems === 0
+                    ? '0 records'
+                    : `Showing ${startIndex + 1}–${endIndex} of ${totalItems} records${
+                        totalItems !== activeTransactions.length ? ` (filtered from ${activeTransactions.length})` : ''
+                      }`}
+                </CardSubtitle>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="seg self-start sm:self-auto">
+                <button type="button" aria-pressed={filterType === 'all'} onClick={() => setFilterType('all')}>
+                  All ({activeTransactions.length})
+                </button>
+                <button type="button" aria-pressed={filterType === 'income'} onClick={() => setFilterType('income')}>
+                  Income ({activeTransactions.filter((t) => t.type === 'income').length})
+                </button>
+                <button type="button" aria-pressed={filterType === 'expense'} onClick={() => setFilterType('expense')}>
+                  Expenses ({activeTransactions.filter((t) => t.type === 'expense').length})
+                </button>
+                {potentialFixupsCount > 0 && (
+                  <button type="button" aria-pressed={filterType === 'fixups'} onClick={() => setFilterType('fixups')}>
+                    Fix-ups ({potentialFixupsCount})
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Table */}
-            {filteredTransactions.length === 0 ? (
-              <div className="empty m-3.5">
-                <p className="empty-mark">&mdash;</p>
-                <h3 className="empty-title">No transactions found</h3>
-                <p className="empty-body">
-                  {activeTransactions.length === 0
-                    ? 'Use the form to write your first income or expense entry.'
-                    : 'No records match this filter.'}
-                </p>
-              </div>
-            ) : (
-              <div className="scroll-x">
-                <table className="floor min-w-[620px]">
-                  <thead>
-                    <tr>
-                      <th scope="col">Date</th>
-                      <th scope="col">Description</th>
-                      <th scope="col">Account / category</th>
-                      <th scope="col" className="text-right">Amount</th>
-                      <th scope="col" className="text-center">Status</th>
-                      <th scope="col" className="text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedTransactions.map((item) => {
-                      const isIncome = item.type === 'income';
-                      const account = activeAccounts.find((a) => a.id === item.accountId);
-                      const isVerified = Boolean(item.verified);
-                      const isFixup = isPotentialFixup(item);
+            {/* Filters Row: Account Selector + Search */}
+            <div className="grid grid-cols-1 sm:grid-cols-[180px_1fr] gap-2">
+              <Select
+                value={filterAccount}
+                onChange={(e) => setFilterAccount(e.target.value)}
+              >
+                <option value="all">All accounts</option>
+                <option value="unassigned">Unassigned (no account)</option>
+                {activeAccounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name}
+                  </option>
+                ))}
+              </Select>
+              <Input
+                type="text"
+                placeholder="Search by description or category&hellip;"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </CardHeader>
 
-                      return (
-                        <tr key={item.id} className={isFixup && filterType === 'fixups' ? 'bg-sayapatri-wash/40' : undefined}>
-                          {/* Date */}
-                          <td className="fig fig-sm whitespace-nowrap">{item.date}</td>
+          {/* Table */}
+          {filteredTransactions.length === 0 ? (
+            <EmptyState className="m-3.5">
+              <EmptyMark>&mdash;</EmptyMark>
+              <EmptyTitle as="h3">No transactions found</EmptyTitle>
+              <EmptyBody>
+                {activeTransactions.length === 0
+                  ? 'Use the form to write your first income or expense entry.'
+                  : 'No records match this filter.'}
+              </EmptyBody>
+            </EmptyState>
+          ) : (
+            <div className="scroll-x">
+              <table className="floor min-w-[620px]">
+                <thead>
+                  <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Account / category</th>
+                    <th scope="col" className="text-right">Amount</th>
+                    <th scope="col" className="text-center">Status</th>
+                    <th scope="col" className="text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedTransactions.map((item) => {
+                    const isIncome = item.type === 'income';
+                    const account = activeAccounts.find((a) => a.id === item.accountId);
+                    const isVerified = Boolean(item.verified);
+                    const isFixup = isPotentialFixup(item);
 
-                          {/* Description */}
-                          <td>
-                            <div className="max-w-[160px] truncate text-xs font-medium text-ink sm:max-w-none sm:text-[13px]">
-                              {item.description}
-                            </div>
-                            {isFixup && <span className="tag tag-warn mt-1">Possible fix-up</span>}
-                          </td>
+                    return (
+                      <tr key={item.id} className={isFixup && filterType === 'fixups' ? 'bg-sayapatri-wash/40' : undefined}>
+                        {/* Date */}
+                        <td className="fig fig-sm whitespace-nowrap">{item.date}</td>
 
-                          {/* Account & Category */}
-                          <td className="whitespace-nowrap">
-                            <span className={`tag ${isIncome ? 'tag-gain' : ''}`}>{item.category}</span>
-                            {account ? (
-                              <div className="mt-1 fig fig-sm fig-mute">{account.name}</div>
-                            ) : (
-                              <div className="mt-1 text-[11px] italic text-ink-faint">No account</div>
-                            )}
-                          </td>
+                        {/* Description */}
+                        <td>
+                          <div className="max-w-[160px] truncate text-xs font-medium text-ink sm:max-w-none sm:text-body">
+                            {item.description}
+                          </div>
+                          {isFixup && <Tag tone="warn" className="mt-1">Possible fix-up</Tag>}
+                        </td>
 
-                          {/* Amount */}
-                          <td className="num">
-                            {item.originalCurrency === 'USD' && item.originalAmount && item.exchangeRate ? (
-                              <>
-                                <span className={`fig fig-md ${isIncome ? 'fig-gain' : 'fig-loss'}`}>
-                                  {isIncome ? '+' : '−'} <span className="unit">USD</span>
-                                  {formatCurrency(item.originalAmount)}
-                                </span>
-                                <span className="block fig fig-sm fig-mute">
-                                  &asymp; Rs {formatCurrency(item.amount)} @ {formatCurrency(item.exchangeRate)}
-                                  {item.exchangeRateStatus === 'stale'
-                                    ? ' (stale)'
-                                    : item.exchangeRateStatus === 'manual'
-                                    ? ' (manual)'
-                                    : ''}
-                                </span>
-                              </>
-                            ) : (
+                        {/* Account & Category */}
+                        <td className="whitespace-nowrap">
+                          <Tag tone={isIncome ? 'gain' : 'neutral'}>{item.category}</Tag>
+                          {account ? (
+                            <div className="mt-1 fig fig-sm fig-mute">{account.name}</div>
+                          ) : (
+                            <div className="mt-1 text-meta italic text-ink-faint">No account</div>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="num">
+                          {item.originalCurrency === 'USD' && item.originalAmount && item.exchangeRate ? (
+                            <>
                               <span className={`fig fig-md ${isIncome ? 'fig-gain' : 'fig-loss'}`}>
-                                {isIncome ? '+' : '−'} <span className="unit">Rs</span>
-                                {formatCurrency(item.amount)}
+                                {isIncome ? '+' : '−'} <span className="unit">USD</span>
+                                {formatCurrency(item.originalAmount)}
                               </span>
-                            )}
-                          </td>
-
-                          {/* Verification Status */}
-                          <td className="text-center whitespace-nowrap">
-                            {isVerified ? (
-                              <span title="Verified against statement, locked against accidental changes" className="tag tag-gain">
-                                Verified
+                              <span className="block fig fig-sm fig-mute">
+                                &asymp; Rs {formatCurrency(item.amount)} @ {formatCurrency(item.exchangeRate)}
+                                {item.exchangeRateStatus === 'stale'
+                                  ? ' (stale)'
+                                  : item.exchangeRateStatus === 'manual'
+                                  ? ' (manual)'
+                                  : ''}
                               </span>
-                            ) : (
-                              <button type="button" onClick={() => handleToggleVerifyTransaction(item)} className="link-ink text-xs">
-                                Mark verified
-                              </button>
+                            </>
+                          ) : (
+                            <span className={`fig fig-md ${isIncome ? 'fig-gain' : 'fig-loss'}`}>
+                              {isIncome ? '+' : '−'} <span className="unit">Rs</span>
+                              {formatCurrency(item.amount)}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Verification Status */}
+                        <td className="text-center whitespace-nowrap">
+                          {isVerified ? (
+                            <Tag tone="gain" title="Verified against statement, locked against accidental changes">
+                              Verified
+                            </Tag>
+                          ) : (
+                            <Button variant="link" size="sm" type="button" onClick={() => handleToggleVerifyTransaction(item)}>
+                              Mark verified
+                            </Button>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-2.5">
+                            <Button variant="link" size="sm" type="button" onClick={() => openEditModal(item)}>
+                              {isVerified ? 'View' : 'Edit'}
+                            </Button>
+
+                            {isVerified && (
+                              <Button
+                                variant="link"
+                                tone="warn"
+                                size="sm"
+                                type="button"
+                                onClick={() => setUnlockModalTx(item)}
+                              >
+                                Unlock
+                              </Button>
                             )}
-                          </td>
 
-                          {/* Actions */}
-                          <td className="text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-2.5">
-                              <button type="button" onClick={() => openEditModal(item)} className="link-ink text-xs">
-                                {isVerified ? 'View' : 'Edit'}
-                              </button>
+                            {isFixup && (
+                              <Button
+                                variant="link"
+                                tone="warn"
+                                size="sm"
+                                type="button"
+                                onClick={() => openConvertModal(item)}
+                              >
+                                Convert
+                              </Button>
+                            )}
 
-                              {isVerified && (
-                                <button
-                                  type="button"
-                                  onClick={() => setUnlockModalTx(item)}
-                                  className="text-xs font-medium text-sayapatri hover:underline"
-                                >
-                                  Unlock
-                                </button>
-                              )}
+                            {!isVerified && (
+                              <Button
+                                variant="link"
+                                tone="danger"
+                                size="sm"
+                                type="button"
+                                onClick={() => executeDeleteTransaction(item.id)}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                              {isFixup && (
-                                <button
-                                  type="button"
-                                  onClick={() => openConvertModal(item)}
-                                  className="text-xs font-medium text-sayapatri hover:underline"
-                                >
-                                  Convert
-                                </button>
-                              )}
-
-                              {!isVerified && (
-                                <button
-                                  type="button"
-                                  onClick={() => executeDeleteTransaction(item.id)}
-                                  className="text-xs font-medium text-loss hover:underline"
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <CardFooter className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+              <div className="fig fig-sm fig-mute">
+                Page {effectivePage} of {totalPages}
               </div>
-            )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="sheet-ft flex flex-col items-center justify-between gap-3 sm:flex-row">
-                <div className="fig fig-sm fig-mute">
-                  Page {effectivePage} of {totalPages}
+              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                <Button
+                  size="sm"
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={effectivePage <= 1}
+                >
+                  Prev
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === effectivePage ? 'primary' : 'secondary'}
+                      size="sm"
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      aria-current={pageNum === effectivePage ? 'page' : undefined}
+                    >
+                      {pageNum}
+                    </Button>
+                  ))}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={effectivePage <= 1}
-                    className="btn btn-sm"
-                  >
-                    Prev
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                      <button
-                        key={pageNum}
-                        type="button"
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`btn btn-sm ${pageNum === effectivePage ? 'btn-ink' : ''}`}
-                      >
-                        {pageNum}
-                      </button>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={effectivePage >= totalPages}
-                    className="btn btn-sm"
-                  >
-                    Next
-                  </button>
-                </div>
+                <Button
+                  size="sm"
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={effectivePage >= totalPages}
+                >
+                  Next
+                </Button>
               </div>
-            )}
+            </CardFooter>
+          )}
 
-            {/* Table Footer */}
-            {filteredTransactions.length > 0 && (
-              <div className="sheet-ft flex flex-wrap items-center justify-between gap-3">
-                <span>
-                  Net for selected list:{' '}
-                  <span
-                    className={`fig fig-sm ${
-                      calculateNetSavings(
-                        calculateTotalByType(filteredTransactions, 'income'),
-                        calculateTotalByType(filteredTransactions, 'expense')
-                      ) >= 0
-                        ? 'fig-gain'
-                        : 'fig-loss'
-                    }`}
-                  >
-                    Rs{' '}
-                    {formatCurrency(
-                      calculateNetSavings(
-                        calculateTotalByType(filteredTransactions, 'income'),
-                        calculateTotalByType(filteredTransactions, 'expense')
-                      )
-                    )}
-                  </span>
+          {/* Table Footer */}
+          {filteredTransactions.length > 0 && (
+            <CardFooter className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Net for selected list:{' '}
+                <span
+                  className={`fig fig-sm ${
+                    calculateNetSavings(
+                      calculateTotalByType(filteredTransactions, 'income'),
+                      calculateTotalByType(filteredTransactions, 'expense')
+                    ) >= 0
+                      ? 'fig-gain'
+                      : 'fig-loss'
+                  }`}
+                >
+                  Rs{' '}
+                  {formatCurrency(
+                    calculateNetSavings(
+                      calculateTotalByType(filteredTransactions, 'income'),
+                      calculateTotalByType(filteredTransactions, 'expense')
+                    )
+                  )}
                 </span>
-                <button onClick={handleClearAll} className="link-ink text-xs">
-                  Clear all records
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+              </span>
+              <Button variant="link" size="sm" onClick={handleClearAll}>
+                Clear all records
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
       </div>
+
 
       {/* Edit Transaction Modal */}
       {editingTx && (
-        <div className="scrim">
-          <div className="dialog">
-            <div className="dialog-hd">
+        <ModalOverlay>
+          <Modal>
+            <ModalHeader>
               <div className="flex items-center gap-2">
                 <h3>{editingTx.verified ? 'Locked transaction' : 'Edit transaction'}</h3>
-                {editingTx.verified && <span className="tag tag-warn">Locked</span>}
+                {editingTx.verified && <Tag tone="warn">Locked</Tag>}
               </div>
-              <button type="button" onClick={() => setEditingTx(null)} className="link-ink text-xs">
+              <Button variant="link" size="sm" type="button" onClick={() => setEditingTx(null)}>
                 Close
-              </button>
-            </div>
+              </Button>
+            </ModalHeader>
 
-            <div className="dialog-bd space-y-4">
+            <ModalBody className="space-y-4">
               {editingTx.verified && (
-                <div className="note note-warn">
+                <Notice tone="warn">
                   <span>
                     <strong>This transaction is verified</strong> against a statement. Its amount,
                     category, account, and date are read-only until unlocked.
                   </span>
-                  <button type="button" onClick={() => setUnlockModalTx(editingTx)} className="btn btn-warn btn-sm">
+                  <Button variant="warn" size="sm" type="button" onClick={() => setUnlockModalTx(editingTx)}>
                     Unlock to edit
-                  </button>
-                </div>
+                  </Button>
+                </Notice>
               )}
 
-              {editError && <div className="note note-loss">{editError}</div>}
+              {editError && <Notice tone="loss">{editError}</Notice>}
 
               <form id="edit-tx-form" onSubmit={saveEditTransaction} className="space-y-4">
                 <div>
-                  <label className="field-lbl">Amount (NPR)</label>
-                  <input
+                  <Label>Amount (NPR)</Label>
+                  <Input
+                    numeric
                     type="number"
                     step="any"
                     min="0.01"
                     disabled={editingTx.verified}
                     value={editAmount}
                     onChange={(e) => setEditAmount(e.target.value)}
-                    className="field field-num"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="field-lbl">Category</label>
-                  <select
+                  <Label>Category</Label>
+                  <Select
                     disabled={editingTx.verified}
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
-                    className="field"
                   >
                     {(editingTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((cat) => (
                       <option key={cat} value={cat}>
                         {cat}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="field-lbl">Description</label>
-                  <input
+                  <Label>Description</Label>
+                  <Input
                     type="text"
                     disabled={editingTx.verified}
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
-                    className="field"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="field-lbl">Date</label>
-                  <input
+                  <Label>Date</Label>
+                  <Input
                     type="date"
                     disabled={editingTx.verified}
                     value={editDate}
                     onChange={(e) => setEditDate(e.target.value)}
-                    className="field"
                   />
                 </div>
 
                 <div>
-                  <label className="field-lbl">Linked account</label>
-                  <select
+                  <Label>Linked account</Label>
+                  <Select
                     disabled={editingTx.verified}
                     value={editAccountId}
                     onChange={(e) => setEditAccountId(e.target.value)}
-                    className="field"
                   >
                     <option value="">No account selected</option>
                     {activeAccounts.map((account) => (
@@ -1612,68 +1646,68 @@ export default function ExpensesPage() {
                         {account.name} (Rs {formatCurrency(accountBalances[account.id] ?? 0)})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </form>
-            </div>
-            <div className="dialog-ft">
-              <button type="button" onClick={() => setEditingTx(null)} className="btn btn-sm">
+            </ModalBody>
+            <ModalFooter>
+              <Button size="sm" type="button" onClick={() => setEditingTx(null)}>
                 Close
-              </button>
+              </Button>
               {!editingTx.verified && (
-                <button type="submit" form="edit-tx-form" className="btn btn-ink btn-sm">
+                <Button variant="primary" size="sm" type="submit" form="edit-tx-form">
                   Save changes
-                </button>
+                </Button>
               )}
-            </div>
-          </div>
-        </div>
+            </ModalFooter>
+          </Modal>
+        </ModalOverlay>
       )}
 
       {/* Unlock Confirmation Modal */}
       {unlockModalTx && (
-        <div className="scrim">
-          <div className="dialog max-w-sm">
-            <div className="dialog-hd">
+        <ModalOverlay>
+          <Modal className="max-w-sm">
+            <ModalHeader>
               <h3>Unlock verified transaction?</h3>
-            </div>
-            <div className="dialog-bd space-y-3">
-              <p className="text-[13px] leading-relaxed text-ink-soft">
+            </ModalHeader>
+            <ModalBody className="space-y-3">
+              <p className="text-body leading-relaxed text-ink-soft">
                 This transaction is verified against a statement. Unlocking it will allow changes
                 that affect your totals.
               </p>
-              <div className="border border-rule bg-sheet-alt p-2.5">
-                <p className="text-[13px] font-medium text-ink">{unlockModalTx.description}</p>
+              <Panel className="p-2.5">
+                <p className="text-body font-medium text-ink">{unlockModalTx.description}</p>
                 <p className="fig fig-sm fig-mute mt-0.5">
                   {unlockModalTx.date} &middot; Rs {formatCurrency(unlockModalTx.amount)}
                 </p>
-              </div>
-            </div>
-            <div className="dialog-ft">
-              <button type="button" onClick={() => setUnlockModalTx(null)} className="btn btn-sm">
+              </Panel>
+            </ModalBody>
+            <ModalFooter>
+              <Button size="sm" type="button" onClick={() => setUnlockModalTx(null)}>
                 Keep locked
-              </button>
-              <button type="button" onClick={confirmUnlockTransaction} className="btn btn-warn btn-sm">
+              </Button>
+              <Button variant="warn" size="sm" type="button" onClick={confirmUnlockTransaction}>
                 Yes, unlock
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </ModalFooter>
+          </Modal>
+        </ModalOverlay>
       )}
 
       {/* Convert to Balance Adjustment Modal (Data Cleanup Flow) */}
       {convertModalTx && (
-        <div className="scrim">
-          <div className="dialog">
-            <div className="dialog-hd">
+        <ModalOverlay>
+          <Modal>
+            <ModalHeader>
               <h3>Convert to balance adjustment</h3>
-              <button type="button" onClick={() => setConvertModalTx(null)} className="link-ink text-xs">
+              <Button variant="link" size="sm" type="button" onClick={() => setConvertModalTx(null)}>
                 Close
-              </button>
-            </div>
+              </Button>
+            </ModalHeader>
 
-            <div className="dialog-bd space-y-4">
-              <p className="text-[13px] leading-relaxed text-ink-soft">
+            <ModalBody className="space-y-4">
+              <p className="text-body leading-relaxed text-ink-soft">
                 Converting this transaction will remove it from your income/expenses and recreate
                 it as a dedicated balance adjustment on the chosen account. This restores your
                 monthly savings rate and cash flow figures.
@@ -1681,12 +1715,11 @@ export default function ExpensesPage() {
 
               <form id="convert-tx-form" onSubmit={executeConvertToAdjustment} className="space-y-4">
                 <div>
-                  <label className="field-lbl">Target account</label>
-                  <select
+                  <Label>Target account</Label>
+                  <Select
                     required
                     value={convertTargetAccountId}
                     onChange={(e) => setConvertTargetAccountId(e.target.value)}
-                    className="field"
                   >
                     <option value="">Select account to adjust</option>
                     {activeAccounts.map((acc) => (
@@ -1694,34 +1727,34 @@ export default function ExpensesPage() {
                         {acc.name} (current: Rs {formatCurrency(accountBalances[acc.id] ?? 0)})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="field-lbl">Signed balance correction (NPR)</label>
-                  <input
+                  <Label>Signed balance correction (NPR)</Label>
+                  <Input
+                    numeric
                     type="number"
                     step="any"
                     required
                     value={convertDeltaAmount}
                     onChange={(e) => setConvertDeltaAmount(e.target.value)}
-                    className="field field-num"
                   />
-                  <p className="field-hint">Positive increases the account balance; negative decreases it.</p>
+                  <FieldHint>Positive increases the account balance; negative decreases it.</FieldHint>
                 </div>
               </form>
-            </div>
-            <div className="dialog-ft">
-              <button type="button" onClick={() => setConvertModalTx(null)} className="btn btn-sm">
+            </ModalBody>
+            <ModalFooter>
+              <Button size="sm" type="button" onClick={() => setConvertModalTx(null)}>
                 Cancel
-              </button>
-              <button type="submit" form="convert-tx-form" disabled={!convertTargetAccountId} className="btn btn-warn btn-sm">
+              </Button>
+              <Button variant="warn" size="sm" type="submit" form="convert-tx-form" disabled={!convertTargetAccountId}>
                 Confirm conversion
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </ModalFooter>
+          </Modal>
+        </ModalOverlay>
       )}
-    </main>
+    </PageShell>
   );
 }

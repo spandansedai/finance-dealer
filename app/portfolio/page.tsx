@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { LedgerRow } from '@/components/LedgerRow';
 import { StockHolding } from '@/types';
 import {
@@ -12,6 +11,30 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useGuestMode } from '@/context/GuestModeContext';
 import { NepseCompanyMeta, NepsePricesApiResponse } from '@/lib/market-data';
+import {
+  AffixField,
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  EmptyBody,
+  EmptyMark,
+  EmptyState,
+  EmptyTitle,
+  FieldHint,
+  Input,
+  Label,
+  Notice,
+  PageHeader,
+  PageShell,
+  Select,
+  Tag,
+  WeightBar,
+} from '@/components/ui';
 
 /**
  * NEPSE stock portfolio page. Authenticated users' holdings are read from and
@@ -37,6 +60,8 @@ const rowToHolding = (row: any): StockHolding => ({
   currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
   sector: row.sector ?? undefined,
 });
+
+const NO_HOLDINGS: StockHolding[] = [];
 
 export default function PortfolioPage() {
   const {
@@ -207,7 +232,8 @@ export default function PortfolioPage() {
   }, []);
 
   // Active holdings set (Supabase if authenticated, in-memory if guest)
-  const activeHoldings = userId ? dbHoldings : guestHoldings;
+  // Guest (sample) holdings only once the auth check has finished with no user.
+  const activeHoldings = userId ? dbHoldings : authChecked ? guestHoldings : NO_HOLDINGS;
 
   // Overlay live prices on top of stored holdings for calculation and display
   const effectiveHoldings = useMemo(() => {
@@ -541,676 +567,669 @@ export default function PortfolioPage() {
   });
 
   return (
-    <main className="page bound">
-      <span className="binding-label">NEPSE</span>
-      <div className="space-y-5">
-        {/* Masthead */}
-        <header className="masthead">
-          <div>
-            <h1>Floor sheet</h1>
-            <p className="masthead-note">
-              Every scrip you hold, what it cost, what it is worth now, and how much of the
-              portfolio it accounts for.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+    <PageShell>
+      {/* Masthead */}
+      <PageHeader
+        title="Floor sheet"
+        description={
+          <>
+            Every scrip you hold, what it cost, what it is worth now, and how much of the
+            portfolio it accounts for.
+          </>
+        }
+        actions={
+          <>
             {liveStatus === 'live' ? (
-              <span className="tag tag-gain">
+              <Tag tone="gain">
                 <span
-                  className="pulse-live inline-block h-1.5 w-1.5 shrink-0 bg-[currentColor]"
+                  className="pulse-live inline-block h-1.5 w-1.5 shrink-0 bg-current"
                   aria-hidden="true"
                 />
                 Live, {timeAgoText || 'just now'}
-              </span>
+              </Tag>
             ) : (
-              <span className="tag">Saved prices</span>
+              <Tag>Saved prices</Tag>
             )}
-            <button
+            <Button
+              size="sm"
               type="button"
               onClick={() => fetchLivePrices(true)}
               disabled={isRefreshingPrices}
-              className="btn btn-sm"
             >
               {isRefreshingPrices ? 'Refreshing…' : 'Refresh prices'}
-            </button>
-          </div>
-        </header>
+            </Button>
+          </>
+        }
+      />
 
-        {loadError && <div className="note note-loss">{loadError}</div>}
-        {loadingHoldings && <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>}
+      {loadError && <Notice tone="loss">{loadError}</Notice>}
+      {loadingHoldings && <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>}
 
-        {!userId && authChecked && (
-          <div className="note note-warn">
-            <span>
-              This is a <strong>scratch page</strong>. Holdings stay in memory and are gone when
-              you reload.
-            </span>
-            <Link href="/login" className="btn btn-warn btn-sm">
-              Sign in to keep them
-            </Link>
-          </div>
-        )}
+      {!userId && authChecked && (
+        <Notice tone="warn">
+          <span>
+            These are <strong>sample holdings</strong>. Buy, sell or reprice anything; it stays in
+            this tab and resets when you reload.
+          </span>
+          <ButtonLink variant="warn" size="sm" href="/login">
+            Sign in to keep your own
+          </ButtonLink>
+        </Notice>
+      )}
 
-        {/* Position totals */}
-        <section className="sheet">
-          <div className="sheet-hd">
-            <h2 className="sheet-title">
-              Position
-            </h2>
-            <span className="sheet-sub">
-              {activeHoldings.length} {activeHoldings.length === 1 ? 'scrip' : 'scrips'} held,
-              valued in NPR
-            </span>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2">
-            <div className="sheet-bd border-b border-rule lg:border-b-0 lg:border-r">
-              <div className="ledger">
-                <LedgerRow label="Cost basis" amount={totalInvested} unit="Rs" tone="mute" />
-                <LedgerRow label="Market value" amount={totalCurrentValue} unit="Rs" large />
-              </div>
+      {/* Position totals */}
+      <Card as="section">
+        <CardHeader>
+          <CardTitle>
+            Position
+          </CardTitle>
+          <CardSubtitle as="span">
+            {activeHoldings.length} {activeHoldings.length === 1 ? 'scrip' : 'scrips'} held,
+            valued in NPR
+          </CardSubtitle>
+        </CardHeader>
+        <div className="grid grid-cols-1 lg:grid-cols-2">
+          <CardBody className="border-b border-rule lg:border-b-0 lg:border-r">
+            <div className="ledger">
+              <LedgerRow label="Cost basis" amount={totalInvested} unit="Rs" tone="mute" />
+              <LedgerRow label="Market value" amount={totalCurrentValue} unit="Rs" large />
             </div>
-            <div className="sheet-bd">
-              <div className="ledger">
-                <LedgerRow
-                  label={isOverallLoss ? 'Unrealised loss' : 'Unrealised gain'}
-                  amount={totalProfitLoss}
-                  unit="Rs"
-                  signed
-                  tone={isOverallLoss ? 'loss' : isOverallProfit ? 'gain' : 'mute'}
-                  large
-                />
-                <LedgerRow
-                  label="Return on cost"
-                  value={
-                    totalInvested > 0
-                      ? `${totalProfitLossPercentage >= 0 ? '+' : '−'}${Math.abs(
-                          totalProfitLossPercentage
-                        ).toFixed(2)}%`
-                      : '0.00%'
-                  }
-                  tone={isOverallLoss ? 'loss' : isOverallProfit ? 'gain' : 'mute'}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
-          {/* Buy / Sell */}
-          <div className="sheet lg:col-span-4">
-            <div className="sheet-hd">
-              <h2 className="sheet-title">{mode === 'buy' ? 'Buy' : 'Sell'}</h2>
-              {!userId && <span className="tag tag-warn">Scratch</span>}
-            </div>
-            <div className="sheet-bd space-y-3">
-              <div className="seg" role="group" aria-label="Buy or sell">
-                <button
-                  type="button"
-                  aria-pressed={mode === 'buy'}
-                  onClick={() => {
-                    setMode('buy');
-                    setFormError(null);
-                  }}
-                  className="flex-1"
-                >
-                  Buy
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={mode === 'sell'}
-                  onClick={() => {
-                    setMode('sell');
-                    setFormError(null);
-                  }}
-                  className="flex-1"
-                  disabled={activeHoldings.length === 0}
-                >
-                  Sell
-                </button>
-              </div>
-
-              {formError && <div className="note note-loss">{formError}</div>}
-              {sellConfirmation && (
-                <div className={`note ${sellConfirmation.realizedGain >= 0 ? 'note-gain' : 'note-loss'}`}>
-                  Sold {formatNepaliNumber(sellConfirmation.sharesSold, 0)} {sellConfirmation.symbol} —
-                  realized {sellConfirmation.realizedGain >= 0 ? 'gain' : 'loss'} of{' '}
-                  {formatNepaliCurrency(Math.abs(sellConfirmation.realizedGain))}.
-                </div>
-              )}
-
-              {mode === 'buy' ? (
-                <form onSubmit={handleBuy} className="space-y-3">
-                  <div>
-                    <label htmlFor="symbol" className="field-lbl">
-                      Scrip
-                    </label>
-                    <input
-                      id="symbol"
-                      type="text"
-                      placeholder="NABIL"
-                      list="live-symbols"
-                      value={symbol}
-                      onChange={(e) => {
-                        const next = e.target.value.toUpperCase();
-                        setSymbol(next);
-                        const meta = liveMeta[next];
-                        if (meta && !companyNameTouched) setCompanyName(meta.companyName);
-                        const livePrice = livePrices[next];
-                        if (livePrice && !pricePerShare) setPricePerShare(String(livePrice));
-                      }}
-                      required
-                      className="field font-mono uppercase tracking-[0.08em]"
-                    />
-                    <datalist id="live-symbols">
-                      {Object.keys(liveMeta).map((sym) => (
-                        <option key={sym} value={sym} />
-                      ))}
-                    </datalist>
-                    <p className="field-hint">
-                      {activeHoldings.some((h) => h.symbol === symbol.trim().toUpperCase())
-                        ? `You already hold this — buying will add to that position at a blended average cost.`
-                        : 'The NEPSE ticker, e.g. NABIL, GBIME, HDL.'}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="companyName" className="field-lbl">
-                      Company name
-                    </label>
-                    <input
-                      id="companyName"
-                      type="text"
-                      placeholder="Nabil Bank Limited"
-                      value={companyName}
-                      onChange={(e) => {
-                        setCompanyName(e.target.value);
-                        setCompanyNameTouched(true);
-                      }}
-                      className="field"
-                    />
-                    <p className="field-hint">Filled in automatically for scrips traded today.</p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="shares" className="field-lbl">
-                      Shares
-                    </label>
-                    <input
-                      id="shares"
-                      type="number"
-                      step="any"
-                      min="0.001"
-                      placeholder="100"
-                      value={shares}
-                      onChange={(e) => setShares(e.target.value)}
-                      required
-                      className="field field-num"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="pricePerShare" className="field-lbl">
-                      Price per share
-                    </label>
-                    <div className="field-wrap">
-                      <span className="prefix">Rs</span>
-                      <input
-                        id="pricePerShare"
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="565"
-                        value={pricePerShare}
-                        onChange={(e) => setPricePerShare(e.target.value)}
-                        required
-                        className="field field-num"
-                      />
-                    </div>
-                    <p className="field-hint">The traded price per share, before any charges.</p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="totalPrice" className="field-lbl">
-                      Total purchase price
-                    </label>
-                    <div className="field-wrap">
-                      <span className="prefix">Rs</span>
-                      <input
-                        id="totalPrice"
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="50350"
-                        value={totalPurchasePrice}
-                        onChange={(e) => setTotalPurchasePrice(e.target.value)}
-                        required
-                        className="field field-num"
-                      />
-                    </div>
-                    <p className="field-hint">
-                      Everything actually debited — shares &times; price per share, plus broker
-                      commission, DP and SEBON fees. The average cost per share is worked out from
-                      this.
-                    </p>
-                  </div>
-
-                  {buyCharges !== null && (
-                    <div className={`note ${buyCharges < 0 ? 'note-warn' : ''}`}>
-                      {buyCharges < 0
-                        ? `Total is Rs ${formatNepaliNumber(
-                            Math.abs(buyCharges)
-                          )} less than shares × price per share — double-check the figures.`
-                        : `Implied charges: Rs ${formatNepaliNumber(buyCharges)}.`}
-                    </div>
-                  )}
-
-                  <button type="submit" disabled={submitting} className="btn btn-ink btn-block">
-                    {submitting ? 'Saving…' : 'Buy shares'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleSell} className="space-y-3">
-                  <div>
-                    <label htmlFor="sellSymbol" className="field-lbl">
-                      Holding
-                    </label>
-                    <select
-                      id="sellSymbol"
-                      value={sellHoldingId}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setSellHoldingId(id);
-                        setSellShares('');
-                        const holding = activeHoldings.find((h) => h.id === id);
-                        const livePrice = holding ? livePrices[holding.symbol] : undefined;
-                        if (livePrice) setSellPricePerShare(String(livePrice));
-                      }}
-                      required
-                      className="field"
-                    >
-                      <option value="">Choose a holding</option>
-                      {activeHoldings.map((h) => (
-                        <option key={h.id} value={h.id}>
-                          {h.symbol} — {formatNepaliNumber(h.shares, 0)} shares
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <div className="flex items-baseline justify-between">
-                      <label htmlFor="sellShares" className="field-lbl">
-                        Shares to sell
-                      </label>
-                      {sellHoldingId && (
-                        <button
-                          type="button"
-                          className="link-ink text-[11px]"
-                          onClick={() =>
-                            setSellShares(
-                              String(activeHoldings.find((h) => h.id === sellHoldingId)?.shares ?? '')
-                            )
-                          }
-                        >
-                          Sell all
-                        </button>
-                      )}
-                    </div>
-                    <input
-                      id="sellShares"
-                      type="number"
-                      step="any"
-                      min="0.001"
-                      placeholder="50"
-                      value={sellShares}
-                      onChange={(e) => setSellShares(e.target.value)}
-                      required
-                      className="field field-num"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="sellPricePerShare" className="field-lbl">
-                      Price per share
-                    </label>
-                    <div className="field-wrap">
-                      <span className="prefix">Rs</span>
-                      <input
-                        id="sellPricePerShare"
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="565"
-                        value={sellPricePerShare}
-                        onChange={(e) => setSellPricePerShare(e.target.value)}
-                        required
-                        className="field field-num"
-                      />
-                    </div>
-                    <p className="field-hint">The traded price per share, before any charges.</p>
-                  </div>
-
-                  <div>
-                    <label htmlFor="sellProceeds" className="field-lbl">
-                      Total sale proceeds
-                    </label>
-                    <div className="field-wrap">
-                      <span className="prefix">Rs</span>
-                      <input
-                        id="sellProceeds"
-                        type="number"
-                        step="any"
-                        min="0"
-                        placeholder="32500"
-                        value={sellProceeds}
-                        onChange={(e) => setSellProceeds(e.target.value)}
-                        required
-                        className="field field-num"
-                      />
-                    </div>
-                    <p className="field-hint">
-                      What actually landed in your account — shares &times; price per share, minus
-                      broker commission, DP and capital gains tax.
-                    </p>
-                  </div>
-
-                  {sellCharges !== null && (
-                    <div className={`note ${sellCharges < 0 ? 'note-warn' : ''}`}>
-                      {sellCharges < 0
-                        ? `Proceeds are Rs ${formatNepaliNumber(
-                            Math.abs(sellCharges)
-                          )} more than shares × price per share — double-check the figures.`
-                        : `Implied charges: Rs ${formatNepaliNumber(sellCharges)}.`}
-                    </div>
-                  )}
-
-                  <button type="submit" disabled={submitting} className="btn btn-ink btn-block">
-                    {submitting ? 'Saving…' : 'Sell shares'}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-
-          {/* Floor sheet */}
-          <div className="sheet lg:col-span-8">
-            <div className="sheet-hd">
-              <div>
-                <h2 className="sheet-title">Holdings</h2>
-                <p className="sheet-sub">
-                  Showing {filteredHoldings.length} of {activeHoldings.length}
-                </p>
-              </div>
-              <input
-                type="text"
-                placeholder="Filter by scrip or company"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="field w-full sm:w-56"
-                aria-label="Filter holdings"
+          </CardBody>
+          <CardBody>
+            <div className="ledger">
+              <LedgerRow
+                label={isOverallLoss ? 'Unrealised loss' : 'Unrealised gain'}
+                amount={totalProfitLoss}
+                unit="Rs"
+                signed
+                tone={isOverallLoss ? 'loss' : isOverallProfit ? 'gain' : 'mute'}
+                large
+              />
+              <LedgerRow
+                label="Return on cost"
+                value={
+                  totalInvested > 0
+                    ? `${totalProfitLossPercentage >= 0 ? '+' : '−'}${Math.abs(
+                        totalProfitLossPercentage
+                      ).toFixed(2)}%`
+                    : '0.00%'
+                }
+                tone={isOverallLoss ? 'loss' : isOverallProfit ? 'gain' : 'mute'}
               />
             </div>
+          </CardBody>
+        </div>
+      </Card>
 
-            {filteredHoldings.length === 0 ? (
-              <div className="sheet-bd">
-                <div className="empty">
-                  <p className="empty-mark">[ NO ENTRIES ]</p>
-                  <p className="empty-title">Nothing on the sheet</p>
-                  <p className="empty-body">
-                    {activeHoldings.length === 0
-                      ? 'Add a scrip on the left to start tracking your NEPSE portfolio.'
-                      : 'No holding matches that filter.'}
-                  </p>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+        {/* Buy / Sell */}
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>{mode === 'buy' ? 'Buy' : 'Sell'}</CardTitle>
+            {!userId && <Tag tone="warn">Scratch</Tag>}
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <div className="seg" role="group" aria-label="Buy or sell">
+              <button
+                type="button"
+                aria-pressed={mode === 'buy'}
+                onClick={() => {
+                  setMode('buy');
+                  setFormError(null);
+                }}
+                className="flex-1"
+              >
+                Buy
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === 'sell'}
+                onClick={() => {
+                  setMode('sell');
+                  setFormError(null);
+                }}
+                className="flex-1"
+                disabled={activeHoldings.length === 0}
+              >
+                Sell
+              </button>
+            </div>
+
+            {formError && <Notice tone="loss">{formError}</Notice>}
+            {sellConfirmation && (
+              <Notice tone={sellConfirmation.realizedGain >= 0 ? 'gain' : 'loss'}>
+                Sold {formatNepaliNumber(sellConfirmation.sharesSold, 0)} {sellConfirmation.symbol} —
+                realized {sellConfirmation.realizedGain >= 0 ? 'gain' : 'loss'} of{' '}
+                {formatNepaliCurrency(Math.abs(sellConfirmation.realizedGain))}.
+              </Notice>
+            )}
+
+            {mode === 'buy' ? (
+              <form onSubmit={handleBuy} className="space-y-3">
+                <div>
+                  <Label htmlFor="symbol">
+                    Scrip
+                  </Label>
+                  <Input
+                    id="symbol"
+                    type="text"
+                    placeholder="NABIL"
+                    list="live-symbols"
+                    value={symbol}
+                    onChange={(e) => {
+                      const next = e.target.value.toUpperCase();
+                      setSymbol(next);
+                      const meta = liveMeta[next];
+                      if (meta && !companyNameTouched) setCompanyName(meta.companyName);
+                      const livePrice = livePrices[next];
+                      if (livePrice && !pricePerShare) setPricePerShare(String(livePrice));
+                    }}
+                    required
+                    className="font-mono uppercase tracking-wider"
+                  />
+                  <datalist id="live-symbols">
+                    {Object.keys(liveMeta).map((sym) => (
+                      <option key={sym} value={sym} />
+                    ))}
+                  </datalist>
+                  <FieldHint>
+                    {activeHoldings.some((h) => h.symbol === symbol.trim().toUpperCase())
+                      ? `You already hold this — buying will add to that position at a blended average cost.`
+                      : 'The NEPSE ticker, e.g. NABIL, GBIME, HDL.'}
+                  </FieldHint>
                 </div>
-              </div>
+
+                <div>
+                  <Label htmlFor="companyName">
+                    Company name
+                  </Label>
+                  <Input
+                    id="companyName"
+                    type="text"
+                    placeholder="Nabil Bank Limited"
+                    value={companyName}
+                    onChange={(e) => {
+                      setCompanyName(e.target.value);
+                      setCompanyNameTouched(true);
+                    }}
+                  />
+                  <FieldHint>Filled in automatically for scrips traded today.</FieldHint>
+                </div>
+
+                <div>
+                  <Label htmlFor="shares">
+                    Shares
+                  </Label>
+                  <Input
+                    numeric
+                    id="shares"
+                    type="number"
+                    step="any"
+                    min="0.001"
+                    placeholder="100"
+                    value={shares}
+                    onChange={(e) => setShares(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="pricePerShare">
+                    Price per share
+                  </Label>
+                  <AffixField prefix="Rs">
+                    <Input
+                      numeric
+                      id="pricePerShare"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="565"
+                      value={pricePerShare}
+                      onChange={(e) => setPricePerShare(e.target.value)}
+                      required
+                    />
+                  </AffixField>
+                  <FieldHint>The traded price per share, before any charges.</FieldHint>
+                </div>
+
+                <div>
+                  <Label htmlFor="totalPrice">
+                    Total purchase price
+                  </Label>
+                  <AffixField prefix="Rs">
+                    <Input
+                      numeric
+                      id="totalPrice"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="50350"
+                      value={totalPurchasePrice}
+                      onChange={(e) => setTotalPurchasePrice(e.target.value)}
+                      required
+                    />
+                  </AffixField>
+                  <FieldHint>
+                    Everything actually debited — shares &times; price per share, plus broker
+                    commission, DP and SEBON fees. The average cost per share is worked out from
+                    this.
+                  </FieldHint>
+                </div>
+
+                {buyCharges !== null && (
+                  <Notice tone={buyCharges < 0 ? 'warn' : 'neutral'}>
+                    {buyCharges < 0
+                      ? `Total is Rs ${formatNepaliNumber(
+                          Math.abs(buyCharges)
+                        )} less than shares × price per share — double-check the figures.`
+                      : `Implied charges: Rs ${formatNepaliNumber(buyCharges)}.`}
+                  </Notice>
+                )}
+
+                <Button variant="primary" block type="submit" disabled={submitting}>
+                  {submitting ? 'Saving…' : 'Buy shares'}
+                </Button>
+              </form>
             ) : (
-              <div className="scroll-x">
-                <table className="floor min-w-[46rem]">
-                  <thead>
-                    <tr>
-                      <th scope="col">Scrip</th>
-                      <th scope="col" className="text-right">
-                        Qty
-                      </th>
-                      <th scope="col" className="text-right">
-                        Buy
-                      </th>
-                      <th scope="col" className="text-right">
-                        LTP
-                      </th>
-                      <th scope="col" className="text-right">
-                        Cost
-                      </th>
-                      <th scope="col" className="text-right">
-                        Value
-                      </th>
-                      <th scope="col" className="text-right">
-                        P/L
-                      </th>
-                      <th scope="col" className="text-right">
-                        Weight
-                      </th>
-                      <th scope="col" className="text-right">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredHoldings.map((item) => {
-                      const isProfit = item.profitLoss > 0;
-                      const isLoss = item.profitLoss < 0;
-                      const isEditingThis = editingPriceId === item.id;
-                      const plClass = isProfit ? 'fig-gain' : isLoss ? 'fig-loss' : 'fig-mute';
+              <form onSubmit={handleSell} className="space-y-3">
+                <div>
+                  <Label htmlFor="sellSymbol">
+                    Holding
+                  </Label>
+                  <Select
+                    id="sellSymbol"
+                    value={sellHoldingId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSellHoldingId(id);
+                      setSellShares('');
+                      const holding = activeHoldings.find((h) => h.id === id);
+                      const livePrice = holding ? livePrices[holding.symbol] : undefined;
+                      if (livePrice) setSellPricePerShare(String(livePrice));
+                    }}
+                    required
+                  >
+                    <option value="">Choose a holding</option>
+                    {activeHoldings.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.symbol} — {formatNepaliNumber(h.shares, 0)} shares
+                      </option>
+                    ))}
+                  </Select>
+                </div>
 
-                      return (
-                        <tr key={item.id}>
-                          <td>
-                            <span className="ticker">{item.symbol}</span>
-                            <span className="mt-1 block max-w-[10rem] truncate text-[11px] text-ink-faint">
-                              {item.companyName}
-                            </span>
-                          </td>
+                <div>
+                  <div className="flex items-baseline justify-between">
+                    <Label htmlFor="sellShares">
+                      Shares to sell
+                    </Label>
+                    {sellHoldingId && (
+                      <Button
+                        variant="link"
+                        size="xs"
+                        type="button"
+                        onClick={() =>
+                          setSellShares(
+                            String(activeHoldings.find((h) => h.id === sellHoldingId)?.shares ?? '')
+                          )
+                        }
+                      >
+                        Sell all
+                      </Button>
+                    )}
+                  </div>
+                  <Input
+                    numeric
+                    id="sellShares"
+                    type="number"
+                    step="any"
+                    min="0.001"
+                    placeholder="50"
+                    value={sellShares}
+                    onChange={(e) => setSellShares(e.target.value)}
+                    required
+                  />
+                </div>
 
-                          <td className="num">{formatNepaliNumber(item.shares, 0)}</td>
+                <div>
+                  <Label htmlFor="sellPricePerShare">
+                    Price per share
+                  </Label>
+                  <AffixField prefix="Rs">
+                    <Input
+                      numeric
+                      id="sellPricePerShare"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="565"
+                      value={sellPricePerShare}
+                      onChange={(e) => setSellPricePerShare(e.target.value)}
+                      required
+                    />
+                  </AffixField>
+                  <FieldHint>The traded price per share, before any charges.</FieldHint>
+                </div>
 
-                          <td className="num fig-mute">
-                            {formatNepaliNumber(item.averagePurchasePrice)}
-                          </td>
+                <div>
+                  <Label htmlFor="sellProceeds">
+                    Total sale proceeds
+                  </Label>
+                  <AffixField prefix="Rs">
+                    <Input
+                      numeric
+                      id="sellProceeds"
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder="32500"
+                      value={sellProceeds}
+                      onChange={(e) => setSellProceeds(e.target.value)}
+                      required
+                    />
+                  </AffixField>
+                  <FieldHint>
+                    What actually landed in your account — shares &times; price per share, minus
+                    broker commission, DP and capital gains tax.
+                  </FieldHint>
+                </div>
 
-                          <td className="num">
-                            {isEditingThis ? (
-                              <span className="inline-flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  step="any"
-                                  min="0"
-                                  value={tempPriceInput}
-                                  onChange={(e) => setTempPriceInput(e.target.value)}
-                                  className="field field-num w-24 !py-0.5"
-                                  autoFocus
-                                  aria-label={`Saved price for ${item.symbol}`}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSavePriceEdit(item.id);
-                                    if (e.key === 'Escape') handleCancelPriceEdit();
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleSavePriceEdit(item.id)}
-                                  className="btn btn-ink btn-sm"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={handleCancelPriceEdit}
-                                  className="btn btn-sm"
-                                >
-                                  Cancel
-                                </button>
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleStartPriceEdit(item.id, item.savedPrice ?? item.currentPrice)
-                                }
-                                className="inline-flex items-center gap-1.5 font-mono tabular-nums hover:text-khata"
-                                title={
-                                  item.isLivePrice
-                                    ? `Live ${item.currentPrice}. Saved fallback ${
-                                        item.savedPrice ?? item.currentPrice
-                                      }. Click to edit the fallback.`
-                                    : 'Click to edit the saved price'
-                                }
-                              >
-                                {formatNepaliNumber(item.currentPrice)}
-                                {item.isLivePrice && (
-                                  <span
-                                    className="pulse-live inline-block h-1.5 w-1.5 shrink-0 bg-gain"
-                                    aria-label="live price"
-                                  />
-                                )}
-                              </button>
-                            )}
-                          </td>
+                {sellCharges !== null && (
+                  <Notice tone={sellCharges < 0 ? 'warn' : 'neutral'}>
+                    {sellCharges < 0
+                      ? `Proceeds are Rs ${formatNepaliNumber(
+                          Math.abs(sellCharges)
+                        )} more than shares × price per share — double-check the figures.`
+                      : `Implied charges: Rs ${formatNepaliNumber(sellCharges)}.`}
+                  </Notice>
+                )}
 
-                          <td className="num fig-mute">
-                            {formatNepaliNumber(item.investedAmount)}
-                          </td>
+                <Button variant="primary" block type="submit" disabled={submitting}>
+                  {submitting ? 'Saving…' : 'Sell shares'}
+                </Button>
+              </form>
+            )}
+          </CardBody>
+        </Card>
 
-                          <td className="num font-medium">
-                            {formatNepaliNumber(item.currentValue)}
-                          </td>
+        {/* Floor sheet */}
+        <Card className="lg:col-span-8">
+          <CardHeader>
+            <div>
+              <CardTitle>Holdings</CardTitle>
+              <CardSubtitle>
+                Showing {filteredHoldings.length} of {activeHoldings.length}
+              </CardSubtitle>
+            </div>
+            <Input
+              type="text"
+              placeholder="Filter by scrip or company"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-56"
+              aria-label="Filter holdings"
+            />
+          </CardHeader>
 
-                          <td className={`num ${plClass}`}>
-                            {isProfit ? '+' : isLoss ? '−' : ''}
-                            {formatNepaliNumber(Math.abs(item.profitLoss))}
-                            <span className="mt-0.5 block text-[11px]">
-                              {item.profitLossPercentage > 0 ? '+' : ''}
-                              {item.profitLossPercentage.toFixed(2)}%
-                            </span>
-                          </td>
+          {filteredHoldings.length === 0 ? (
+            <CardBody>
+              <EmptyState>
+                <EmptyMark>[ NO ENTRIES ]</EmptyMark>
+                <EmptyTitle>Nothing on the sheet</EmptyTitle>
+                <EmptyBody>
+                  {activeHoldings.length === 0
+                    ? 'Add a scrip on the left to start tracking your NEPSE portfolio.'
+                    : 'No holding matches that filter.'}
+                </EmptyBody>
+              </EmptyState>
+            </CardBody>
+          ) : (
+            <div className="scroll-x">
+              <table className="floor min-w-[46rem]">
+                <thead>
+                  <tr>
+                    <th scope="col">Scrip</th>
+                    <th scope="col" className="text-right">
+                      Qty
+                    </th>
+                    <th scope="col" className="text-right">
+                      Buy
+                    </th>
+                    <th scope="col" className="text-right">
+                      LTP
+                    </th>
+                    <th scope="col" className="text-right">
+                      Cost
+                    </th>
+                    <th scope="col" className="text-right">
+                      Value
+                    </th>
+                    <th scope="col" className="text-right">
+                      P/L
+                    </th>
+                    <th scope="col" className="text-right">
+                      Weight
+                    </th>
+                    <th scope="col" className="text-right">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredHoldings.map((item) => {
+                    const isProfit = item.profitLoss > 0;
+                    const isLoss = item.profitLoss < 0;
+                    const isEditingThis = editingPriceId === item.id;
+                    const plClass = isProfit ? 'fig-gain' : isLoss ? 'fig-loss' : 'fig-mute';
 
-                          <td className="num">
-                            {item.portfolioWeightPercentage.toFixed(1)}%
-                            <span className="weightbar" aria-hidden="true">
-                              <span
-                                style={{
-                                  width: `${Math.min(
-                                    100,
-                                    Math.max(0, item.portfolioWeightPercentage)
-                                  )}%`,
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <span className="ticker">{item.symbol}</span>
+                          <span className="mt-1 block max-w-[10rem] truncate text-meta text-ink-faint">
+                            {item.companyName}
+                          </span>
+                        </td>
+
+                        <td className="num">{formatNepaliNumber(item.shares, 0)}</td>
+
+                        <td className="num fig-mute">
+                          {formatNepaliNumber(item.averagePurchasePrice)}
+                        </td>
+
+                        <td className="num">
+                          {isEditingThis ? (
+                            <span className="inline-flex items-center gap-1">
+                              <Input
+                                numeric
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={tempPriceInput}
+                                onChange={(e) => setTempPriceInput(e.target.value)}
+                                className="w-24 !py-0.5"
+                                autoFocus
+                                aria-label={`Saved price for ${item.symbol}`}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSavePriceEdit(item.id);
+                                  if (e.key === 'Escape') handleCancelPriceEdit();
                                 }}
                               />
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                type="button"
+                                onClick={() => handleSavePriceEdit(item.id)}
+                              >
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                type="button"
+                                onClick={handleCancelPriceEdit}
+                              >
+                                Cancel
+                              </Button>
                             </span>
-                          </td>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleStartPriceEdit(item.id, item.savedPrice ?? item.currentPrice)
+                              }
+                              className="inline-flex items-center gap-1.5 font-mono tabular-nums hover:text-khata"
+                              title={
+                                item.isLivePrice
+                                  ? `Live ${item.currentPrice}. Saved fallback ${
+                                      item.savedPrice ?? item.currentPrice
+                                    }. Click to edit the fallback.`
+                                  : 'Click to edit the saved price'
+                              }
+                            >
+                              {formatNepaliNumber(item.currentPrice)}
+                              {item.isLivePrice && (
+                                <span
+                                  className="pulse-live inline-block h-1.5 w-1.5 shrink-0 bg-gain"
+                                  aria-label="live price"
+                                />
+                              )}
+                            </button>
+                          )}
+                        </td>
 
-                          <td className="num whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-2.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMode('sell');
-                                  setSellHoldingId(item.id);
-                                  setSellPricePerShare(item.currentPrice ? String(item.currentPrice) : '');
-                                  setFormError(null);
-                                  setSellConfirmation(null);
-                                }}
-                                className="link-ink text-[11px]"
-                              >
-                                Sell
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteHolding(item.id)}
-                                className="text-[11px] text-ink-faint hover:text-loss hover:underline"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                        <td className="num fig-mute">
+                          {formatNepaliNumber(item.investedAmount)}
+                        </td>
 
-            {filteredHoldings.length > 0 && (
-              <div className="sheet-ft flex flex-wrap items-center justify-between gap-3">
-                <span>
-                  Cost <span className="fig fig-sm">{formatNepaliCurrency(totalInvested)}</span>
-                  <span className="mx-2 inline-block h-3 w-px translate-y-0.5 bg-rule-strong" />
-                  Value{' '}
-                  <span className="fig fig-sm">{formatNepaliCurrency(totalCurrentValue)}</span>
-                  <span className="mx-2 inline-block h-3 w-px translate-y-0.5 bg-rule-strong" />
-                  <span
-                    className={`fig fig-sm ${
-                      isOverallProfit ? 'fig-gain' : isOverallLoss ? 'fig-loss' : ''
-                    }`}
-                  >
-                    {isOverallProfit ? '+' : ''}
-                    {formatNepaliCurrency(totalProfitLoss)} (
-                    {totalProfitLossPercentage >= 0 ? '+' : ''}
-                    {totalProfitLossPercentage.toFixed(2)}%)
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="text-[11px] text-ink-faint hover:text-loss hover:underline"
+                        <td className="num font-medium">
+                          {formatNepaliNumber(item.currentValue)}
+                        </td>
+
+                        <td className={`num ${plClass}`}>
+                          {isProfit ? '+' : isLoss ? '−' : ''}
+                          {formatNepaliNumber(Math.abs(item.profitLoss))}
+                          <span className="mt-0.5 block text-meta">
+                            {item.profitLossPercentage > 0 ? '+' : ''}
+                            {item.profitLossPercentage.toFixed(2)}%
+                          </span>
+                        </td>
+
+                        <td className="num">
+                          {item.portfolioWeightPercentage.toFixed(1)}%
+                          <WeightBar percent={item.portfolioWeightPercentage} />
+                        </td>
+
+                        <td className="num whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2.5">
+                            <Button
+                              variant="link"
+                              size="xs"
+                              type="button"
+                              onClick={() => {
+                                setMode('sell');
+                                setSellHoldingId(item.id);
+                                setSellPricePerShare(item.currentPrice ? String(item.currentPrice) : '');
+                                setFormError(null);
+                                setSellConfirmation(null);
+                              }}
+                            >
+                              Sell
+                            </Button>
+                            <Button
+                              variant="link"
+                              tone="quiet"
+                              size="xs"
+                              type="button"
+                              onClick={() => handleDeleteHolding(item.id)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {filteredHoldings.length > 0 && (
+            <CardFooter className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Cost <span className="fig fig-sm">{formatNepaliCurrency(totalInvested)}</span>
+                <span className="mx-2 inline-block h-3 w-px translate-y-0.5 bg-rule-strong" />
+                Value{' '}
+                <span className="fig fig-sm">{formatNepaliCurrency(totalCurrentValue)}</span>
+                <span className="mx-2 inline-block h-3 w-px translate-y-0.5 bg-rule-strong" />
+                <span
+                  className={`fig fig-sm ${
+                    isOverallProfit ? 'fig-gain' : isOverallLoss ? 'fig-loss' : ''
+                  }`}
                 >
-                  Clear all holdings
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* How each column is worked out */}
-        <section className="sheet">
-          <div className="sheet-hd">
-            <h2 className="sheet-title">How these are worked out</h2>
-            <span className="sheet-sub">lib/calculations/finance.ts</span>
-          </div>
-          <div className="sheet-bd">
-            <dl className="ledger">
-              <div className="ledger-row">
-                <dt className="lbl">Average buy price</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">total purchase price &divide; shares</dd>
-              </div>
-              <div className="ledger-row">
-                <dt className="lbl">Cost</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">shares &times; average buy price</dd>
-              </div>
-              <div className="ledger-row">
-                <dt className="lbl">Value</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">shares &times; latest price</dd>
-              </div>
-              <div className="ledger-row">
-                <dt className="lbl">Unrealised P/L</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">value &minus; cost</dd>
-              </div>
-              <div className="ledger-row">
-                <dt className="lbl">Return</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">P/L &divide; cost &times; 100</dd>
-              </div>
-              <div className="ledger-row">
-                <dt className="lbl">Realised P/L on a sale</dt>
-                <span className="leader" aria-hidden="true" />
-                <dd className="fig fig-sm">sale proceeds &minus; (shares sold &times; average buy price)</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
+                  {isOverallProfit ? '+' : ''}
+                  {formatNepaliCurrency(totalProfitLoss)} (
+                  {totalProfitLossPercentage >= 0 ? '+' : ''}
+                  {totalProfitLossPercentage.toFixed(2)}%)
+                </span>
+              </span>
+              <Button
+                variant="link"
+                tone="quiet"
+                size="xs"
+                type="button"
+                onClick={handleClearAll}
+              >
+                Clear all holdings
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
       </div>
-    </main>
+
+      {/* How each column is worked out */}
+      <Card as="section">
+        <CardHeader>
+          <CardTitle>How these are worked out</CardTitle>
+          <CardSubtitle as="span">lib/calculations/finance.ts</CardSubtitle>
+        </CardHeader>
+        <CardBody>
+          <dl className="ledger">
+            <div className="ledger-row">
+              <dt className="lbl">Average buy price</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">total purchase price &divide; shares</dd>
+            </div>
+            <div className="ledger-row">
+              <dt className="lbl">Cost</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">shares &times; average buy price</dd>
+            </div>
+            <div className="ledger-row">
+              <dt className="lbl">Value</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">shares &times; latest price</dd>
+            </div>
+            <div className="ledger-row">
+              <dt className="lbl">Unrealised P/L</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">value &minus; cost</dd>
+            </div>
+            <div className="ledger-row">
+              <dt className="lbl">Return</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">P/L &divide; cost &times; 100</dd>
+            </div>
+            <div className="ledger-row">
+              <dt className="lbl">Realised P/L on a sale</dt>
+              <span className="leader" aria-hidden="true" />
+              <dd className="fig fig-sm">sale proceeds &minus; (shares sold &times; average buy price)</dd>
+            </div>
+          </dl>
+        </CardBody>
+      </Card>
+
+    </PageShell>
   );
 }

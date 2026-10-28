@@ -20,6 +20,16 @@ two other artefacts this app actually deals with: the bank passbook and the NEPS
    ledger vocabulary (lakh grouping, the fiscal stamp, the floor sheet) carries the identity on
    its own without them.
 
+4. **This pass (October 2026) brings the book to life.** Same tokens, same two typefaces, same
+   ledger grammar (ruled rows, dotted leaders, lakh grouping, the floor sheet), but with depth and
+   motion: 8px/14px radii, layered sheets with quiet shadows that deepen on hover, a filled indigo
+   primary button, a lit masthead band with the ascending-bar mark drawn faintly into it, KPI tiles
+   with a toned top rail, figures that count up (`components/CountUp.tsx`), meters and weight bars
+   that fill, sections that rise in on load, and modals that pop. Every page now uses this one
+   system, including About, Contact, Settings, Login and the legal pages (long-form pages share
+   `components/DocPage.tsx` and the `.doc` prose style). All motion is disabled under
+   `prefers-reduced-motion`. Where §5 below says "no animation" or "no fill", revision 4 supersedes it.
+
 ---
 
 ## 1. Colour

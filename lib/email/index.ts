@@ -13,6 +13,8 @@ export interface SendEmailOptions {
   html: string;
   text?: string;
   from?: string;
+  /** Address that replies should go to, e.g. the sender of a contact-form message. */
+  replyTo?: string;
 }
 
 export interface SendEmailResult {
@@ -60,6 +62,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
         subject: options.subject,
         html: options.html,
         text: options.text,
+        ...(options.replyTo ? { reply_to: options.replyTo } : {}),
       }),
     });
 

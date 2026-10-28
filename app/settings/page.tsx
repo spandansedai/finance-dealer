@@ -8,9 +8,25 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { EmailFrequency, UserEmailPreferences } from '@/types';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  FieldHint,
+  Input,
+  Label,
+  Notice,
+  PageHeader,
+  PageShell,
+  Stamp,
+  Tag,
+} from '@/components/ui';
 
 export default function SettingsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -177,231 +193,179 @@ export default function SettingsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 p-4 sm:p-6 md:p-10">
-      <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+    <PageShell width="narrow">
+      <PageHeader
+        title="Settings"
+        back={{ href: '/', label: 'Dashboard' }}
+        description={
+          <>
+            Manage your account and the automated summary emails that report on your cash flow
+            and NEPSE portfolio.
+          </>
+        }
+        actions={userEmail && <Stamp className="max-w-full truncate" label="Signed in" value={userEmail} />}
+      />
+
+      {/* Feedback Alert */}
+      {message && (
+        <Notice tone={message.type === 'success' ? 'gain' : 'loss'} role="status">
+          <span>{message.text}</span>
+          <Button variant="link" type="button" onClick={() => setMessage(null)}>
+            Dismiss
+          </Button>
+        </Notice>
+      )}
+
+      {/* Guest Mode Notice */}
+      {!userId && authChecked && (
+        <Notice tone="warn">
+          <span>
+            <strong>Sign in to set up summary emails.</strong> They need an account to store
+            your schedule and the address to send them to.
+          </span>
+          <ButtonLink variant="warn" size="sm" href="/login">
+            Sign in or create an account
+          </ButtonLink>
+        </Notice>
+      )}
+
+      {/* Automated Email Reports */}
+      <Card as="section">
+        <CardHeader>
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Settings</h1>
-              <span className="text-xs px-2.5 py-0.5 font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full border border-emerald-500/20">
-                Preferences
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-              Manage your account settings, automated financial summary reports, and notification schedules.
-            </p>
+            <CardTitle>Summary emails</CardTitle>
+            <CardSubtitle>
+              Recurring reports on your income, expenses, savings rate and NEPSE portfolio.
+            </CardSubtitle>
           </div>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition shadow-xs self-start sm:self-auto"
-          >
-            <span>&larr;</span>
-            <span>Dashboard</span>
-          </Link>
-        </div>
+          {enabled && (
+            <Tag tone="gain">
+              <span className="pulse-live inline-block h-1.5 w-1.5 bg-current" aria-hidden="true" />
+              Active
+            </Tag>
+          )}
+        </CardHeader>
 
-        {/* Feedback Alert */}
-        {message && (
-          <div
-            className={`p-4 rounded-xl text-sm border flex items-center justify-between ${
-              message.type === 'success'
-                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
-            }`}
-          >
-            <span>{message.text}</span>
-            <button
-              onClick={() => setMessage(null)}
-              className="text-xs font-bold underline opacity-70 hover:opacity-100 cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
-
-        {/* Guest Mode Notice */}
-        {!userId && authChecked && (
-          <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-500/25 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-sm shadow-xs">
-            <div>
-              <strong className="block font-bold">Sign In Required for Automated Reports</strong>
-              <span className="text-xs text-amber-800 dark:text-amber-300">
-                Automated email summaries require a registered Finance-Dealer account to safely store your notification schedule and email address.
-              </span>
-            </div>
-            <Link
-              href="/login"
-              className="px-4 py-2 font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs transition self-start sm:self-auto shrink-0 shadow-xs"
-            >
-              Sign In / Sign Up
-            </Link>
-          </div>
-        )}
-
-        {/* Automated Email Reports Card */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-7 shadow-xs space-y-6">
-          <div className="flex items-start justify-between gap-4 pb-4 border-b border-zinc-100 dark:border-zinc-800/80">
-            <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <span>📬</span>
-                <span>Automated Financial Summary Emails</span>
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-                Receive recurring email reports summarizing your salary, daily expenses, net savings rate, and NEPSE portfolio performance.
-              </p>
-            </div>
-            {enabled && (
-              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 shrink-0">
-                Active
-              </span>
-            )}
-          </div>
-
+        <CardBody>
           {loading ? (
-            <div className="text-xs text-zinc-500 py-4">Loading your preferences...</div>
+            <div className="space-y-3" aria-busy="true">
+              <span className="skeleton h-9 w-full" />
+              <span className="skeleton h-16 w-full" />
+              <span className="skeleton h-9 w-40" />
+            </div>
           ) : (
             <form onSubmit={handleSavePreferences} className="space-y-5">
-              {/* Account Email Info */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                  Notification Recipient Email
-                </label>
-                <input
+                <Label htmlFor="recipient">
+                  Sent to
+                </Label>
+                <Input
+                  id="recipient"
                   type="text"
                   disabled
-                  value={userEmail || 'Guest Mode (Sign in to configure)'}
-                  className="w-full px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 cursor-not-allowed font-mono"
+                  value={userEmail || 'Sign in first'}
+                  className="font-mono"
                 />
-                <p className="text-[11px] text-zinc-400 mt-1">
-                  Reports are dispatched to your authenticated account email address.
-                </p>
+                <FieldHint>Reports always go to the email address you signed in with.</FieldHint>
               </div>
 
-              {/* Opt-in Toggle */}
-              <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-800/40 rounded-xl border border-zinc-200/80 dark:border-zinc-700/80">
-                <div>
-                  <div className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Enable Recurring Email Reports
-                  </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Toggle automatic summary reports on your selected schedule.
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+              <label className="choice items-center justify-between">
+                <span>
+                  <span className="block text-body font-semibold text-ink">
+                    Send recurring reports
+                  </span>
+                  <span className="mt-0.5 block text-xs text-ink-soft">
+                    Turn automatic summaries on or off for the schedule below.
+                  </span>
+                </span>
+                <span className="toggle">
                   <input
                     type="checkbox"
                     checked={enabled}
                     disabled={!userId}
                     onChange={(e) => setEnabled(e.target.checked)}
-                    className="sr-only peer"
+                    aria-label="Send recurring reports"
                   />
-                  <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-hidden peer-focus:ring-2 peer-focus:ring-emerald-500 dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-zinc-600 peer-checked:bg-emerald-600 rounded-full"></div>
-                </label>
-              </div>
+                  <span className="toggle-track" aria-hidden="true" />
+                </span>
+              </label>
 
-              {/* Frequency Selection */}
               {enabled && (
-                <div className="space-y-2 pt-1">
-                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                    Report Delivery Frequency
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <label
-                      className={`flex items-start p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        frequency === 'weekly'
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500'
-                          : 'border-zinc-200 dark:border-zinc-700/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                      }`}
-                    >
+                <fieldset className="space-y-2">
+                  <Label as="legend">How often</Label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="choice">
                       <input
                         type="radio"
                         name="frequency"
                         value="weekly"
                         checked={frequency === 'weekly'}
                         onChange={() => setFrequency('weekly')}
-                        className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
                       />
-                      <div className="ml-3">
-                        <span className="block text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                          Weekly Digest
+                      <span>
+                        <span className="block text-body font-semibold text-ink">Weekly digest</span>
+                        <span className="mt-0.5 block text-xs text-ink-soft">
+                          Every 7 days, with week-to-date cash flow and portfolio updates.
                         </span>
-                        <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Sent every 7 days with your week-to-date cash flow and stock portfolio updates.
-                        </span>
-                      </div>
+                      </span>
                     </label>
-
-                    <label
-                      className={`flex items-start p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        frequency === 'monthly'
-                          ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 ring-1 ring-emerald-500'
-                          : 'border-zinc-200 dark:border-zinc-700/80 hover:bg-zinc-50 dark:hover:bg-zinc-800/50'
-                      }`}
-                    >
+                    <label className="choice">
                       <input
                         type="radio"
                         name="frequency"
                         value="monthly"
                         checked={frequency === 'monthly'}
                         onChange={() => setFrequency('monthly')}
-                        className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
                       />
-                      <div className="ml-3">
-                        <span className="block text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                          Monthly Summary
+                      <span>
+                        <span className="block text-body font-semibold text-ink">Monthly summary</span>
+                        <span className="mt-0.5 block text-xs text-ink-soft">
+                          Once a month, with a full breakdown of income, expenses and gains.
                         </span>
-                        <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                          Sent every ~30 days with a full monthly breakdown of income, expenses, and asset gains.
-                        </span>
-                      </div>
+                      </span>
                     </label>
                   </div>
-                </div>
+                </fieldset>
               )}
 
-              {/* Schedule Info */}
               {lastSentAt && (
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Last summary report dispatched:{' '}
-                  <strong>{new Date(lastSentAt).toLocaleString()}</strong>
-                </div>
+                <p className="text-xs text-ink-soft">
+                  Last report sent{' '}
+                  <span className="fig fig-sm">{new Date(lastSentAt).toLocaleString()}</span>
+                </p>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <button
-                  type="submit"
-                  disabled={!userId || saving}
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 transition shadow-xs cursor-pointer"
-                >
-                  {saving ? 'Saving...' : 'Save Preferences'}
-                </button>
-
+              <div className="flex flex-wrap items-center gap-3 border-t border-rule pt-4">
+                <Button variant="primary" type="submit" disabled={!userId || saving}>
+                  {saving ? 'Saving\u2026' : 'Save preferences'}
+                </Button>
                 {userId && (
-                  <button
-                    type="button"
-                    onClick={handleSendTestEmail}
-                    disabled={testing}
-                    className="px-4 py-2.5 rounded-xl text-sm font-semibold border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition disabled:opacity-50 cursor-pointer"
-                  >
-                    {testing ? 'Sending Test...' : 'Send Test Email Now'}
-                  </button>
+                  <Button type="button" onClick={handleSendTestEmail} disabled={testing}>
+                    {testing ? 'Sending test\u2026' : 'Send a test email now'}
+                  </Button>
                 )}
               </div>
             </form>
           )}
-        </div>
+        </CardBody>
+      </Card>
 
-        {/* Additional Info / Security Reference */}
-        <div className="p-4 sm:p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-100/60 dark:bg-zinc-900/60 text-xs text-zinc-600 dark:text-zinc-400 space-y-2">
-          <h3 className="font-bold text-zinc-900 dark:text-zinc-200">
-            Privacy &amp; Security Guarantee
-          </h3>
-          <p>
-            Your financial data is private and secured by PostgreSQL Row-Level Security (RLS). Emails are only dispatched to users who explicitly opt in. You can change your frequency or unsubscribe at any time from this settings page.
+      <Card as="section">
+        <CardHeader>
+          <CardTitle>Privacy &amp; security</CardTitle>
+          <ButtonLink variant="link" href="/privacy">
+            Privacy policy
+          </ButtonLink>
+        </CardHeader>
+        <CardBody>
+          <p className="text-body leading-relaxed text-ink-soft">
+            Your financial data is private and protected by PostgreSQL Row-Level Security.
+            Emails are only sent to people who opt in, and you can change the schedule or turn
+            them off here at any time.
           </p>
-        </div>
-      </div>
-    </main>
+        </CardBody>
+      </Card>
+
+    </PageShell>
   );
 }

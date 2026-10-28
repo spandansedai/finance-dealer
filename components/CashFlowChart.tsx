@@ -18,6 +18,7 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { formatNepaliCompact, formatNepaliCurrency } from '@/lib/calculations/finance';
+import { EmptyBody, EmptyMark, EmptyState, EmptyTitle, Panel, Swatch } from '@/components/ui';
 
 /**
  * Props for CashFlowChart component.
@@ -85,13 +86,13 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
   // Empty state when no income/expense records exist
   if (isEmpty) {
     return (
-      <div className="empty">
-        <div className="empty-mark">[ 0.00 ]</div>
-        <p className="empty-title">No cash flow entries</p>
-        <p className="empty-body">
+      <EmptyState>
+        <EmptyMark>[ 0.00 ]</EmptyMark>
+        <EmptyTitle>No cash flow entries</EmptyTitle>
+        <EmptyBody>
           Record income and expense entries in the ledger to render the cash flow comparison.
-        </p>
-      </div>
+        </EmptyBody>
+      </EmptyState>
     );
   }
 
@@ -122,22 +123,22 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
                 if (active && payload && payload.length) {
                   const entry = payload[0].payload;
                   return (
-                    <div className="border border-rule bg-sheet p-2.5 text-xs">
+                    <Panel raised className="p-2.5 text-xs">
                       <div className="flex items-center gap-1.5 font-medium text-ink">
-                        <span className="h-2 w-2" style={{ backgroundColor: entry.fill }} />
+                        <Swatch color={entry.fill} />
                         <span>{entry.label}</span>
                       </div>
                       <div className="fig fig-sm mt-1 text-ink-soft">
                         {entry.category === 'Deficit' ? '−' : ''}
                         {formatNepaliCurrency(entry.amount)}
                       </div>
-                    </div>
+                    </Panel>
                   );
                 }
                 return null;
               }}
             />
-            <Bar dataKey="amount" radius={0} maxBarSize={40}>
+            <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={44} animationDuration={900} animationEasing="ease-out">
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -147,25 +148,25 @@ export const CashFlowChart: React.FC<CashFlowChartProps> = ({
       </div>
 
       {/* Legend & Stats */}
-      <div className="grid grid-cols-3 gap-2 border-t border-rule pt-3 text-center">
-        <div className="border border-rule bg-sheet-alt px-2 py-2">
-          <span className="block text-[10px] text-ink-faint">Inflow</span>
+      <div className="grid grid-cols-1 gap-2 border-t border-rule pt-3 text-center sm:grid-cols-3">
+        <Panel className="p-2">
+          <span className="block text-micro text-ink-faint">Inflow</span>
           <span className="fig fig-sm fig-gain mt-0.5 block truncate">
             {formatNepaliCurrency(income)}
           </span>
-        </div>
-        <div className="border border-rule bg-sheet-alt px-2 py-2">
-          <span className="block text-[10px] text-ink-faint">Outflow</span>
+        </Panel>
+        <Panel className="p-2">
+          <span className="block text-micro text-ink-faint">Outflow</span>
           <span className="fig fig-sm fig-loss mt-0.5 block truncate">
             {formatNepaliCurrency(expenses)}
           </span>
-        </div>
-        <div className="border border-rule bg-sheet-alt px-2 py-2">
-          <span className="block text-[10px] text-ink-faint">{isDeficit ? 'Deficit' : 'Surplus'}</span>
+        </Panel>
+        <Panel className="p-2">
+          <span className="block text-micro text-ink-faint">{isDeficit ? 'Deficit' : 'Surplus'}</span>
           <span className={`fig fig-sm mt-0.5 block truncate ${isDeficit ? 'fig-loss' : 'text-sayapatri'}`}>
             {formatNepaliCurrency(savings)}
           </span>
-        </div>
+        </Panel>
       </div>
     </div>
   );

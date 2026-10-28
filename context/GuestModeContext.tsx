@@ -13,6 +13,15 @@
 
 import React, { createContext, useContext, useState } from 'react';
 import { Account, AccountTransfer, BalanceAdjustment, StockHolding, Transaction } from '@/types';
+import {
+  buildDemoAccounts,
+  buildDemoAdjustments,
+  buildDemoHoldings,
+  buildDemoSalaryProfile,
+  buildDemoSavingsGoals,
+  buildDemoTransactions,
+  buildDemoTransfers,
+} from '@/lib/guest/demoData';
 
 /** Temporary salary-planning data kept only in guest-mode React memory. */
 export interface SalaryProfileDraft {
@@ -103,14 +112,15 @@ const GuestModeContext = createContext<GuestModeContextType | undefined>(undefin
  */
 export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   // Pure in-memory React state — no localStorage or sessionStorage is used to guarantee
-  // that data automatically resets upon page refresh.
-  const [guestTransactions, setGuestTransactions] = useState<Transaction[]>([]);
-  const [guestAccounts, setGuestAccounts] = useState<Account[]>([]);
-  const [guestTransfers, setGuestTransfers] = useState<AccountTransfer[]>([]);
-  const [guestAdjustments, setGuestAdjustments] = useState<BalanceAdjustment[]>([]);
-  const [guestHoldings, setGuestHoldings] = useState<StockHolding[]>([]);
-  const [guestSalaryProfile, setGuestSalaryProfile] = useState<SalaryProfileDraft | null>(null);
-  const [guestSavingsGoals, setGuestSavingsGoals] = useState<SavingsGoalDraft[]>([]);
+  // that data automatically resets upon page refresh. Each session opens on the
+  // sample book from lib/guest/demoData so every feature has something to show.
+  const [guestTransactions, setGuestTransactions] = useState<Transaction[]>(buildDemoTransactions);
+  const [guestAccounts, setGuestAccounts] = useState<Account[]>(buildDemoAccounts);
+  const [guestTransfers, setGuestTransfers] = useState<AccountTransfer[]>(buildDemoTransfers);
+  const [guestAdjustments, setGuestAdjustments] = useState<BalanceAdjustment[]>(buildDemoAdjustments);
+  const [guestHoldings, setGuestHoldings] = useState<StockHolding[]>(buildDemoHoldings);
+  const [guestSalaryProfile, setGuestSalaryProfile] = useState<SalaryProfileDraft | null>(buildDemoSalaryProfile);
+  const [guestSavingsGoals, setGuestSavingsGoals] = useState<SavingsGoalDraft[]>(buildDemoSavingsGoals);
 
   /**
    * Adds an income or expense transaction to guest memory.
