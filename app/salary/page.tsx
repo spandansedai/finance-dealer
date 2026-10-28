@@ -1,12 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { NEPAL_INDIVIDUAL_TAX_BRACKETS, NEPAL_TAX_FISCAL_YEAR } from '@/lib/config/nepalTax';
 import { formatNepaliCurrency, formatNepaliNumber } from '@/lib/calculations/finance';
 import { supabase } from '@/lib/supabase';
 import { LedgerRow } from '@/components/LedgerRow';
 import { SavingsGoalDraft, SalaryProfileDraft, useGuestMode } from '@/context/GuestModeContext';
+import {
+  AffixField,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  EmptyBody,
+  EmptyMark,
+  EmptyState,
+  EmptyTitle,
+  Input,
+  Label,
+  Notice,
+  PageHeader,
+  PageShell,
+  Stamp,
+} from '@/components/ui';
 
 interface ProfileRow { monthly_salary: number | string; monthly_allowances: number | string; monthly_deductions: number | string; expected_monthly_expense: number | string; savings_target_amount: number | string | null; savings_target_percentage: number | string | null; }
 interface GoalRow { id: string; name: string; target_amount: number | string; }
@@ -123,9 +141,9 @@ export default function SalaryPage() {
 
   if (loading) {
     return (
-      <main className="page bound">
+      <PageShell>
         <p className="fig fig-sm fig-mute">Reading the book&hellip;</p>
-      </main>
+      </PageShell>
     );
   }
 
@@ -137,300 +155,293 @@ export default function SalaryPage() {
   ];
 
   return (
-    <main className="page bound">
-      <span className="binding-label">SALARY</span>
-      <div className="space-y-6">
-        <header className="masthead">
-          <div>
-            <h1>Salary &amp; tax</h1>
-            <p className="masthead-note">
-              Plan recurring pay, budget expected spending, set savings goals, and estimate this
-              year&rsquo;s Nepal income tax position.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="stamp">{NEPAL_TAX_FISCAL_YEAR}</span>
-            <Link href="/" className="link-ink">
-              &larr; Dashboard
-            </Link>
-          </div>
-        </header>
+    <PageShell>
+      <PageHeader
+        title="Salary & tax"
+        back={{ href: '/', label: 'Dashboard' }}
+        description={
+          <>
+            Plan recurring pay, budget expected spending, set savings goals, and estimate this
+            year&rsquo;s Nepal income tax position.
+          </>
+        }
+        actions={<Stamp label={NEPAL_TAX_FISCAL_YEAR} />}
+      />
 
-        {!userId && (
-          <div className="note note-warn">
-            <span>Guest mode: salary plans and goals stay only in memory and reset on refresh.</span>
-          </div>
-        )}
-        {error && <div className="note note-loss">{error}</div>}
-        {message && <div className="note note-gain">{message}</div>}
+      {!userId && (
+        <Notice tone="warn">
+          <span>Guest mode: this is a <strong>sample plan</strong>. Change anything; plans and goals stay only in this tab and reset on refresh.</span>
+        </Notice>
+      )}
+      {error && <Notice tone="loss">{error}</Notice>}
+      {message && <Notice tone="gain">{message}</Notice>}
 
-        <div className="grid gap-4 lg:grid-cols-5">
-          <form onSubmit={savePlan} className="space-y-4 lg:col-span-3">
-            <section className="sheet">
-              <div className="sheet-hd">
-                <h2 className="sheet-title">Salary &amp; planning inputs</h2>
-              </div>
-              <div className="sheet-bd">
-                <p className="sheet-sub mb-3">
-                  Expected expense is your budget, separate from logged transactions.
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {moneyFields.map(([label, key]) => (
-                    <div key={key}>
-                      <label className="field-lbl" htmlFor={key}>
-                        {label}
-                      </label>
-                      <div className="field-wrap">
-                        <span className="prefix">Rs</span>
-                        <input
-                          id={key}
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={profile[key]}
-                          onChange={(e) => updateProfile(key, numberOrZero(e.target.value))}
-                          className="field field-num"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  <div>
-                    <label className="field-lbl" htmlFor="savingsTargetAmount">
-                      Desired monthly savings amount
-                    </label>
-                    <div className="field-wrap">
-                      <span className="prefix">Rs</span>
-                      <input
-                        id="savingsTargetAmount"
+      <div className="grid gap-4 lg:grid-cols-5">
+        <form onSubmit={savePlan} className="space-y-4 lg:col-span-3">
+          <Card as="section">
+            <CardHeader>
+              <CardTitle>Salary &amp; planning inputs</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <CardSubtitle className="mb-3">
+                Expected expense is your budget, separate from logged transactions.
+              </CardSubtitle>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {moneyFields.map(([label, key]) => (
+                  <div key={key}>
+                    <Label htmlFor={key}>
+                      {label}
+                    </Label>
+                    <AffixField prefix="Rs">
+                      <Input
+                        numeric
+                        id={key}
                         type="number"
                         min="0"
                         step="1"
-                        placeholder="Optional"
-                        value={profile.savingsTargetAmount ?? ''}
-                        onChange={(e) => updateProfile('savingsTargetAmount', optionalNumber(e.target.value))}
-                        className="field field-num"
+                        value={profile[key]}
+                        onChange={(e) => updateProfile(key, numberOrZero(e.target.value))}
                       />
-                    </div>
+                    </AffixField>
                   </div>
-                  <div>
-                    <label className="field-lbl" htmlFor="savingsTargetPercentage">
-                      Or desired savings rate (%)
-                    </label>
-                    <input
-                      id="savingsTargetPercentage"
+                ))}
+                <div>
+                  <Label htmlFor="savingsTargetAmount">
+                    Desired monthly savings amount
+                  </Label>
+                  <AffixField prefix="Rs">
+                    <Input
+                      numeric
+                      id="savingsTargetAmount"
                       type="number"
                       min="0"
-                      max="100"
-                      step="0.1"
+                      step="1"
                       placeholder="Optional"
-                      value={profile.savingsTargetPercentage ?? ''}
-                      onChange={(e) => updateProfile('savingsTargetPercentage', optionalNumber(e.target.value))}
-                      className="field field-num"
+                      value={profile.savingsTargetAmount ?? ''}
+                      onChange={(e) => updateProfile('savingsTargetAmount', optionalNumber(e.target.value))}
                     />
-                  </div>
+                  </AffixField>
                 </div>
-              </div>
-            </section>
-
-            <section className="sheet">
-              <div className="sheet-hd">
                 <div>
-                  <h2 className="sheet-title">Savings goals</h2>
-                  <p className="sheet-sub">A name and a target amount.</p>
-                </div>
-                <button type="button" onClick={addGoal} className="btn btn-ink btn-sm">
-                  + Add goal
-                </button>
-              </div>
-              <div className="sheet-bd">
-                {goals.length === 0 ? (
-                  <div className="empty">
-                    <p className="empty-mark">[ NO GOALS ]</p>
-                    <p className="empty-title">Nothing set aside for, yet</p>
-                    <p className="empty-body">
-                      Add a goal to see an estimated timeline against your planned savings.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {goals.map((goal) => (
-                      <div
-                        key={goal.id}
-                        className="grid gap-2 border-b border-rule pb-2.5 last:border-b-0 last:pb-0 sm:grid-cols-[1fr_170px_auto] sm:items-center"
-                      >
-                        <input
-                          aria-label="Goal name"
-                          value={goal.name}
-                          onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
-                          placeholder="e.g. Emergency fund"
-                          className="field"
-                        />
-                        <div className="field-wrap">
-                          <span className="prefix">Rs</span>
-                          <input
-                            aria-label="Goal target amount"
-                            type="number"
-                            min="1"
-                            value={goal.targetAmount || ''}
-                            onChange={(e) => updateGoal(goal.id, { targetAmount: numberOrZero(e.target.value) })}
-                            placeholder="Target"
-                            className="field field-num"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeGoal(goal.id)}
-                          className="justify-self-start text-[13px] text-loss hover:underline sm:justify-self-end"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <button type="submit" disabled={saving} className="btn btn-ink btn-block">
-              {saving ? 'Saving…' : 'Save salary plan'}
-            </button>
-          </form>
-
-          <aside className="space-y-4 lg:col-span-2">
-            <section className="sheet">
-              <div className="sheet-hd">
-                <h2 className="sheet-title">
-                  Planned position
-                </h2>
-              </div>
-              <div className="sheet-bd">
-                <div className="ledger">
-                  <LedgerRow label="Income after deductions" amount={incomeAfterDeductions} unit="Rs" tone="mute" />
-                  <LedgerRow label="Expected expense" amount={profile.expectedMonthlyExpense} unit="Rs" tone="loss" />
-                  <LedgerRow
-                    label={isDeficit ? 'Shortfall' : 'Planned savings'}
-                    amount={plannedMonthlySavings}
-                    unit="Rs"
-                    tone={isDeficit ? 'loss' : 'gain'}
-                    total
-                    large
+                  <Label htmlFor="savingsTargetPercentage">
+                    Or desired savings rate (%)
+                  </Label>
+                  <Input
+                    numeric
+                    id="savingsTargetPercentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="Optional"
+                    value={profile.savingsTargetPercentage ?? ''}
+                    onChange={(e) => updateProfile('savingsTargetPercentage', optionalNumber(e.target.value))}
                   />
                 </div>
-                {targetSavings !== null && (
-                  <div className={`note ${targetDifference !== null && targetDifference >= 0 ? 'note-gain' : 'note-loss'} mt-3`}>
-                    {targetDifference !== null && targetDifference >= 0
-                      ? `On track: ${formatNepaliCurrency(targetDifference)} ${targetDifference === 0 ? 'at' : 'over'} your target.`
-                      : `Under target by ${formatNepaliCurrency(Math.abs(targetDifference ?? 0))}.`}
-                  </div>
-                )}
               </div>
-            </section>
+            </CardBody>
+          </Card>
 
-            <section className="sheet">
-              <div className="sheet-hd">
-                <h2 className="sheet-title">Goal estimates</h2>
+          <Card as="section">
+            <CardHeader>
+              <div>
+                <CardTitle>Savings goals</CardTitle>
+                <CardSubtitle>A name and a target amount.</CardSubtitle>
               </div>
-              <div className="sheet-bd">
-                {goals.length === 0 ? (
-                  <p className="fig fig-sm fig-mute">Add a goal to see an estimate.</p>
-                ) : (
-                  <div className="ledger">
-                    {goals.map((goal) => (
-                      <div key={goal.id} className="ledger-row">
-                        <span className="lbl">{goal.name || 'Untitled goal'}</span>
-                        <span className="leader" aria-hidden="true" />
-                        <span className="fig fig-md">{formatNepaliCurrency(goal.targetAmount)}</span>
-                        <p className="ledger-note">
-                          {plannedMonthlySavings > 0 && goal.targetAmount > 0
-                            ? `At this rate, about ${Math.ceil(goal.targetAmount / plannedMonthlySavings)} months to reach.`
-                            : 'Set a positive planned monthly savings amount to estimate a timeline.'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <Button variant="primary" size="sm" type="button" onClick={addGoal}>
+                + Add goal
+              </Button>
+            </CardHeader>
+            <CardBody>
+              {goals.length === 0 ? (
+                <EmptyState>
+                  <EmptyMark>[ NO GOALS ]</EmptyMark>
+                  <EmptyTitle>Nothing set aside for, yet</EmptyTitle>
+                  <EmptyBody>
+                    Add a goal to see an estimated timeline against your planned savings.
+                  </EmptyBody>
+                </EmptyState>
+              ) : (
+                <div className="space-y-2.5">
+                  {goals.map((goal) => (
+                    <div
+                      key={goal.id}
+                      className="grid gap-2 border-b border-rule pb-2.5 last:border-b-0 last:pb-0 sm:grid-cols-[1fr_170px_auto] sm:items-center"
+                    >
+                      <Input
+                        aria-label="Goal name"
+                        value={goal.name}
+                        onChange={(e) => updateGoal(goal.id, { name: e.target.value })}
+                        placeholder="e.g. Emergency fund"
+                      />
+                      <AffixField prefix="Rs">
+                        <Input
+                          numeric
+                          aria-label="Goal target amount"
+                          type="number"
+                          min="1"
+                          value={goal.targetAmount || ''}
+                          onChange={(e) => updateGoal(goal.id, { targetAmount: numberOrZero(e.target.value) })}
+                          placeholder="Target"
+                        />
+                      </AffixField>
+                      <Button
+                        variant="link"
+                        tone="danger"
+                        type="button"
+                        onClick={() => removeGoal(goal.id)}
+                        className="justify-self-start sm:justify-self-end"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Button variant="primary" block type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save salary plan'}
+          </Button>
+        </form>
+
+        <aside className="space-y-4 lg:col-span-2">
+          <Card as="section">
+            <CardHeader>
+              <CardTitle>
+                Planned position
+              </CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="ledger">
+                <LedgerRow label="Income after deductions" amount={incomeAfterDeductions} unit="Rs" tone="mute" />
+                <LedgerRow label="Expected expense" amount={profile.expectedMonthlyExpense} unit="Rs" tone="loss" />
+                <LedgerRow
+                  label={isDeficit ? 'Shortfall' : 'Planned savings'}
+                  amount={plannedMonthlySavings}
+                  unit="Rs"
+                  tone={isDeficit ? 'loss' : 'gain'}
+                  total
+                  large
+                />
               </div>
-            </section>
+              {targetSavings !== null && (
+                <Notice tone={targetDifference !== null && targetDifference >= 0 ? 'gain' : 'loss'} className="mt-3">
+                  {targetDifference !== null && targetDifference >= 0
+                    ? `On track: ${formatNepaliCurrency(targetDifference)} ${targetDifference === 0 ? 'at' : 'over'} your target.`
+                    : `Under target by ${formatNepaliCurrency(Math.abs(targetDifference ?? 0))}.`}
+                </Notice>
+              )}
+            </CardBody>
+          </Card>
 
-            <button type="button" onClick={logSalary} disabled={loggingSalary} className="btn btn-block">
-              {loggingSalary ? 'Logging…' : 'Log this month’s salary as a transaction'}
-            </button>
-          </aside>
-        </div>
+          <Card as="section">
+            <CardHeader>
+              <CardTitle>Goal estimates</CardTitle>
+            </CardHeader>
+            <CardBody>
+              {goals.length === 0 ? (
+                <p className="fig fig-sm fig-mute">Add a goal to see an estimate.</p>
+              ) : (
+                <div className="ledger">
+                  {goals.map((goal) => (
+                    <LedgerRow
+                      key={goal.id}
+                      label={goal.name || 'Untitled goal'}
+                      amount={goal.targetAmount}
+                      unit="Rs"
+                      note={
+                        plannedMonthlySavings > 0 && goal.targetAmount > 0
+                          ? `At this rate, about ${Math.ceil(goal.targetAmount / plannedMonthlySavings)} months to reach.`
+                          : 'Set a positive planned monthly savings amount to estimate a timeline.'
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
 
-        <section className="sheet">
-          <div className="sheet-hd">
-            <div>
-              <h2 className="sheet-title">Nepal income tax estimate</h2>
-              <p className="sheet-sub">{NEPAL_TAX_FISCAL_YEAR} resident natural-person marginal schedule.</p>
-            </div>
-            <span className="whitespace-nowrap">
-              <span className="fig fig-md">{formatNepaliCurrency(monthlyTax)}</span>
-              <span className="ml-1.5 text-[11px] text-ink-faint">est. monthly tax</span>
-            </span>
-          </div>
-          <div className="sheet-bd">
-            <div className="ledger mb-4">
-              <LedgerRow label="Annual gross income" amount={annualGrossIncome} unit="Rs" tone="mute" />
-              <LedgerRow label="Annual deductions" amount={annualDeductions} unit="Rs" tone="mute" />
-              <LedgerRow label="Taxable income" amount={taxableIncome} unit="Rs" />
-              <LedgerRow label="Est. monthly take-home" amount={monthlyTakeHome} unit="Rs" tone="gain" total large />
-            </div>
-
-            <div className="scroll-x">
-              <table className="floor min-w-[36rem]">
-                <thead>
-                  <tr>
-                    <th scope="col">Tax bracket</th>
-                    <th scope="col" className="text-right">
-                      Income in bracket
-                    </th>
-                    <th scope="col" className="text-right">
-                      Rate
-                    </th>
-                    <th scope="col" className="text-right">
-                      Estimated tax
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {taxLines.length ? (
-                    taxLines.map((line) => (
-                      <tr key={line.label}>
-                        <td>{line.label}</td>
-                        <td className="num fig-mute">{formatNepaliNumber(line.taxableAmount)}</td>
-                        <td className="num">{(line.rate * 100).toFixed(0)}%</td>
-                        <td className="num">{formatNepaliNumber(line.tax)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="text-ink-soft">
-                        Enter income to see the bracket breakdown.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={3} className="border-t-2 border-rule-strong pt-2.5 font-medium text-ink">
-                      Estimated annual income tax
-                    </td>
-                    <td className="num border-t-2 border-rule-strong pt-2.5 font-semibold">
-                      {formatNepaliNumber(annualTax)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            <p className="note note-warn mt-4">
-              This is an estimate for personal planning purposes only, not official tax advice.
-              Consult a tax professional or the Inland Revenue Department for official figures.
-            </p>
-          </div>
-        </section>
+          <Button block type="button" onClick={logSalary} disabled={loggingSalary}>
+            {loggingSalary ? 'Logging…' : 'Log this month’s salary as a transaction'}
+          </Button>
+        </aside>
       </div>
-    </main>
+
+      <Card as="section">
+        <CardHeader>
+          <div>
+            <CardTitle>Nepal income tax estimate</CardTitle>
+            <CardSubtitle>{NEPAL_TAX_FISCAL_YEAR} resident natural-person marginal schedule.</CardSubtitle>
+          </div>
+          <span className="whitespace-nowrap">
+            <span className="fig fig-md">{formatNepaliCurrency(monthlyTax)}</span>
+            <span className="ml-1.5 text-meta text-ink-faint">est. monthly tax</span>
+          </span>
+        </CardHeader>
+        <CardBody>
+          <div className="ledger mb-4">
+            <LedgerRow label="Annual gross income" amount={annualGrossIncome} unit="Rs" tone="mute" />
+            <LedgerRow label="Annual deductions" amount={annualDeductions} unit="Rs" tone="mute" />
+            <LedgerRow label="Taxable income" amount={taxableIncome} unit="Rs" />
+            <LedgerRow label="Est. monthly take-home" amount={monthlyTakeHome} unit="Rs" tone="gain" total large />
+          </div>
+
+          <div className="scroll-x">
+            <table className="floor min-w-[36rem]">
+              <thead>
+                <tr>
+                  <th scope="col">Tax bracket</th>
+                  <th scope="col" className="text-right">
+                    Income in bracket
+                  </th>
+                  <th scope="col" className="text-right">
+                    Rate
+                  </th>
+                  <th scope="col" className="text-right">
+                    Estimated tax
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxLines.length ? (
+                  taxLines.map((line) => (
+                    <tr key={line.label}>
+                      <td>{line.label}</td>
+                      <td className="num fig-mute">{formatNepaliNumber(line.taxableAmount)}</td>
+                      <td className="num">{(line.rate * 100).toFixed(0)}%</td>
+                      <td className="num">{formatNepaliNumber(line.tax)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="text-ink-soft">
+                      Enter income to see the bracket breakdown.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={3} className="border-t-2 border-rule-strong pt-2.5 font-medium text-ink">
+                    Estimated annual income tax
+                  </td>
+                  <td className="num border-t-2 border-rule-strong pt-2.5 font-semibold">
+                    {formatNepaliNumber(annualTax)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <Notice as="p" tone="warn" className="mt-4">
+            This is an estimate for personal planning purposes only, not official tax advice.
+            Consult a tax professional or the Inland Revenue Department for official figures.
+          </Notice>
+        </CardBody>
+      </Card>
+
+    </PageShell>
   );
 }

@@ -10,6 +10,23 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  EmptyBody,
+  EmptyMark,
+  EmptyState,
+  EmptyTitle,
+  Heading,
+  Input,
+  Notice,
+  PageHeader,
+  PageShell,
+  Stamp,
+  Tag,
+} from '@/components/ui';
 
 interface FAQItem {
   id: string;
@@ -62,7 +79,7 @@ const FAQ_DATA: FAQItem[] = [
           Guest Mode gives you instant, frictionless access to test all core features of Finance-Dealer without needing to create an account or provide an email address.
         </p>
         <p>
-          In Guest Mode, all income, expense entries, and stock holdings exist <strong>strictly in your browser&apos;s local volatile memory (RAM)</strong>. Zero data is ever sent to or stored on our cloud servers. Because of this ephemeral nature, <strong>your guest data will automatically reset when you refresh the page or close your browser tab</strong>.
+          In Guest Mode, all income, expense entries, and stock holdings exist <strong>strictly in your browser&apos;s local volatile memory (RAM)</strong>. It opens with a sample book of made-up entries, accounts and holdings so you can see every feature working, and you can edit or delete any of it. Zero data is ever sent to or stored on our cloud servers. Because of this ephemeral nature, <strong>your guest data will automatically reset when you refresh the page or close your browser tab</strong>.
         </p>
         <p>
           To permanently store and access your financial ledgers across multiple devices, simply{' '}
@@ -143,7 +160,7 @@ const FAQ_DATA: FAQItem[] = [
         <p>
           The <strong>Insights Engine</strong> on your Dashboard is a deterministic mathematical analysis tool. It processes your logged income, expense categories, and stock holdings using rule-based calculations to surface factual observations — such as flagging month-over-month spending increases, calculating your savings rate benchmark against recommended personal finance standards, or identifying high concentration risk in single NEPSE scrips.
         </p>
-        <div className="note note-warn !text-xs sm:!text-sm">
+        <Notice tone="warn" className="!text-xs sm:!text-sm">
           <span>
             <strong>Important:</strong> Insights are strictly mathematical observations and
             organizational aids. They do <strong>not</strong> constitute certified financial, tax,
@@ -151,7 +168,7 @@ const FAQ_DATA: FAQItem[] = [
             recommendations or financial guarantees. Always conduct your own research and consult
             licensed professionals before making investment decisions.
           </span>
-        </div>
+        </Notice>
       </div>
     ),
   },
@@ -174,15 +191,6 @@ const FAQ_DATA: FAQItem[] = [
               contact &amp; support form
             </Link>
             .
-          </li>
-          <li>
-            Email us directly at:{' '}
-            <a
-              href="mailto:support@financedealer.app"
-              className="font-mono font-semibold text-khata underline underline-offset-2 hover:text-khata-hover"
-            >
-              support@financedealer.app
-            </a>
           </li>
         </ul>
         <p>
@@ -253,140 +261,144 @@ export default function FAQPage() {
   }, [selectedCategory, searchQuery]);
 
   return (
-    <main className="page bound">
-      <span className="binding-label">FAQ</span>
-      <div className="space-y-6">
-        <header className="masthead">
-          <div>
-            <h1>Frequently asked questions</h1>
-            <p className="masthead-note">
-              Answers on data privacy, guest mode, NEPSE live pricing, email reports, and how to
-              reach us.
-            </p>
-          </div>
-          <Link href="/" className="link-ink">
-            &larr; Dashboard
-          </Link>
-        </header>
+    <PageShell>
+      <PageHeader
+        title="Frequently asked questions"
+        back={{ href: '/', label: 'Dashboard' }}
+        description={
+          <>
+            Answers on data privacy, guest mode, NEPSE live pricing, email reports, and how to
+            reach us.
+          </>
+        }
+        actions={<Stamp label={`${FAQ_DATA.length} answers`} />}
+      />
 
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-            <input
-              type="text"
-              placeholder="Search questions"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="field sm:max-w-xs"
-              aria-label="Search questions"
-            />
-            <div className="flex items-center gap-3">
-              {searchQuery && (
-                <button type="button" onClick={() => setSearchQuery('')} className="link-ink">
-                  Clear
-                </button>
-              )}
-              <button type="button" onClick={expandAll} className="btn btn-sm">
-                Expand all
-              </button>
-              <button type="button" onClick={collapseAll} className="btn btn-sm">
-                Collapse all
-              </button>
-            </div>
-          </div>
-
-          <div className="scroll-x no-bar">
-            <div className="seg">
-              {CATEGORIES.map((category) => {
-                const count =
-                  category === 'All'
-                    ? FAQ_DATA.length
-                    : FAQ_DATA.filter((item) => item.category === category).length;
-                const isActive = selectedCategory === category;
-
-                return (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => setSelectedCategory(category)}
-                    aria-pressed={isActive}
-                  >
-                    {category} <span className="opacity-70">({count})</span>
-                  </button>
-                );
-              })}
-            </div>
+      <div className="space-y-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <Input
+            type="text"
+            placeholder="Search questions"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="sm:max-w-xs"
+            aria-label="Search questions"
+          />
+          <div className="flex items-center gap-3">
+            {searchQuery && (
+              <Button variant="link" type="button" onClick={() => setSearchQuery('')}>
+                Clear
+              </Button>
+            )}
+            <Button size="sm" type="button" onClick={expandAll}>
+              Expand all
+            </Button>
+            <Button size="sm" type="button" onClick={collapseAll}>
+              Collapse all
+            </Button>
           </div>
         </div>
 
-        <div className="space-y-2.5">
-          {filteredFaqs.length === 0 ? (
-            <div className="empty">
-              <p className="empty-mark">[ NO MATCHES ]</p>
-              <p className="empty-title">No matching questions found</p>
-              <p className="empty-body">
-                We couldn&apos;t find any questions matching &quot;{searchQuery}&quot;. Try a
-                different search or category.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('All');
-                }}
-                className="btn btn-ink btn-sm mt-3"
-              >
-                Reset filters
-              </button>
-            </div>
-          ) : (
-            filteredFaqs.map((faq) => {
-              const isOpen = !!openItems[faq.id];
+        <div className="scroll-x no-bar">
+          <div className="seg">
+            {CATEGORIES.map((category) => {
+              const count =
+                category === 'All'
+                  ? FAQ_DATA.length
+                  : FAQ_DATA.filter((item) => item.category === category).length;
+              const isActive = selectedCategory === category;
 
               return (
-                <div key={faq.id} className="border border-rule bg-sheet transition-colors">
-                  <button
-                    type="button"
-                    onClick={() => toggleItem(faq.id)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-start justify-between gap-4 p-3.5 text-left transition-colors hover:bg-sheet-alt sm:p-4"
-                  >
-                    <div>
-                      <span className="tag mb-1.5 inline-block">{faq.category}</span>
-                      <h2 className="font-display text-base font-semibold leading-snug text-ink sm:text-lg">
-                        {faq.question}
-                      </h2>
-                    </div>
-                    <span className="mt-1 shrink-0 font-mono text-sm text-ink-faint" aria-hidden="true">
-                      {isOpen ? '−' : '+'}
-                    </span>
-                  </button>
-
-                  {isOpen && (
-                    <div className="border-t border-rule p-3.5 sm:p-4">{faq.answer}</div>
-                  )}
-                </div>
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setSelectedCategory(category)}
+                  aria-pressed={isActive}
+                >
+                  {category} <span className="opacity-70">({count})</span>
+                </button>
               );
-            })
-          )}
-        </div>
-
-        <section className="sheet">
-          <div className="sheet-bd flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h3 className="font-display text-lg font-semibold text-ink">
-                Still have questions or found an issue?
-              </h3>
-              <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-ink-soft">
-                We are constantly improving Finance-Dealer. If your question isn&apos;t listed
-                above or you&apos;d like to report a bug, send us a note.
-              </p>
-            </div>
-            <Link href="/contact" className="btn btn-ink shrink-0">
-              Contact support
-            </Link>
+            })}
           </div>
-        </section>
+        </div>
       </div>
-    </main>
+
+      <div className="space-y-2.5">
+        {filteredFaqs.length === 0 ? (
+          <EmptyState>
+            <EmptyMark>NO MATCHES</EmptyMark>
+            <EmptyTitle>No matching questions found</EmptyTitle>
+            <EmptyBody>
+              We couldn&apos;t find any questions matching &quot;{searchQuery}&quot;. Try a
+              different search or category.
+            </EmptyBody>
+            <Button
+              variant="primary"
+              size="sm"
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('All');
+              }}
+              className="mt-3"
+            >
+              Reset filters
+            </Button>
+          </EmptyState>
+        ) : (
+          filteredFaqs.map((faq) => {
+            const isOpen = !!openItems[faq.id];
+
+            return (
+              <Card key={faq.id} className={`overflow-hidden ${isOpen ? 'border-khata/40' : ''}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleItem(faq.id)}
+                  aria-expanded={isOpen}
+                  className="flex w-full items-start justify-between gap-4 p-3.5 text-left transition-colors hover:bg-sheet-alt sm:p-4"
+                >
+                  <div>
+                    <Tag className="mb-1.5 inline-block">{faq.category}</Tag>
+                    <Heading className="sm:text-lg">
+                      {faq.question}
+                    </Heading>
+                  </div>
+                  <span
+                    className={`mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border font-mono text-sm transition-all duration-300 ${
+                      isOpen ? 'rotate-45 border-khata bg-khata text-on-khata' : 'border-rule-strong text-ink-faint'
+                    }`}
+                    aria-hidden="true"
+                  >
+                    +
+                  </span>
+                </button>
+
+                {isOpen && (
+                  <div className="reveal border-t border-rule p-3.5 sm:p-4">{faq.answer}</div>
+                )}
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      <Card as="section">
+        <CardBody className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <Heading as="h2" size="lg">
+              Still have questions or found an issue?
+            </Heading>
+            <p className="mt-1 max-w-xl text-body leading-relaxed text-ink-soft">
+              We are constantly improving Finance-Dealer. If your question isn&apos;t listed
+              above or you&apos;d like to report a bug, send us a note.
+            </p>
+          </div>
+          <ButtonLink variant="primary" href="/contact" className="shrink-0">
+            Contact support
+          </ButtonLink>
+        </CardBody>
+      </Card>
+
+    </PageShell>
   );
 }

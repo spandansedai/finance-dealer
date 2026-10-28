@@ -1,90 +1,98 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Finance-Dealer design language — the bound account book.
+   Finance-Dealer design language — the bound account book, brought to life.
    See DESIGN.md for the reasoning behind every value in this file.
 
    Revision history:
-   1. First pass leaned on a saturated crimson as a structural chrome color
-      plus graphic flourishes (double rules, a solid binding edge, a hard
-      offset shadow). Read as harsh.
-   2. Second pass went fully monochrome — no accent at all, everything
-      carried by weight and contrast. Read as flat.
-   3. This pass: two deliberate named accents, chosen specifically so
-      neither one sits near the gain/loss hues (green/rust) and gets
-      confused for a data signal. Indigo (`--khata`) carries brand/primary/
-      active states. Marigold (`--sayapatri`) carries secondary emphasis —
-      locks, guest mode, reconciliation. Both are used sparingly: chrome,
-      borders, and secondary buttons stay neutral so the accents still read
-      as intentional rather than decorative.
+   1. Saturated crimson chrome, double rules, a binding edge. Read as harsh.
+   2. Fully monochrome. Read as flat.
+   3. Two named accents — Indigo (`--khata`) for brand/primary/active, and
+      Marigold (`--sayapatri`) for locks, guest mode and reconciliation —
+      kept clear of the gain/loss hues.
+   4. This pass: same tokens, same ledger grammar, but the page now has depth
+      and motion. Softer radii, layered surfaces with quiet shadows, a filled
+      primary button, sections that rise in on load, figures that count up,
+      meters that fill. Every page — the app and the static/legal pages —
+      now draws from this one file.
 
    Colour is defined once here as semantic tokens and flipped wholesale under
-   prefers-color-scheme. Components reference the tokens, never raw hex, so
-   dark mode is correct by construction rather than by remembering `dark:`.
+   prefers-color-scheme. Components reference the tokens, never raw hex.
    ========================================================================== */
 
 :root {
-  /* Surface — quiet neutral paper, not tinted */
-  --paper: #f6f5f3;
-  --sheet: #fcfbf9;
-  --sheet-alt: #edebe6;
+  /* Surface */
+  --paper: #f5f4f1;
+  --sheet: #fdfcfa;
+  --sheet-alt: #f0eee9;
 
-  /* Ink — the neutral scale for text, borders, and structural chrome */
-  --ink: #232323;
-  --ink-soft: #625f58;
-  --ink-faint: #96938a;
+  /* Ink */
+  --ink: #1f1f22;
+  --ink-soft: #5f5c56;
+  --ink-faint: #94918a;
 
   /* Ruling */
-  --rule: #e4e2dd;
+  --rule: #e6e3dd;
   --rule-strong: #d3cfc7;
 
   /* Indigo — brand, primary actions, active/selected states, links. */
   --khata: #4b4f96;
   --khata-hover: #3c3f7a;
-  --khata-wash: #e9e9f5;
-  --on-khata: var(--paper);
+  --khata-wash: #ebebf7;
+  --khata-glow: #8b8fe0;
+  --on-khata: #fdfcfa;
 
   /* Marigold — secondary emphasis: locks, guest mode, reconciliation. */
-  --sayapatri: #b9860f;
-  --sayapatri-wash: #f7ecd6;
+  --sayapatri: #b07e0b;
+  --sayapatri-wash: #f8eed8;
 
   /* Board signal. Deliberately kept clear of both accents above. */
-  --gain: #4b7a5a;
-  --gain-wash: #eaf0ea;
+  --gain: #3f7a52;
+  --gain-wash: #e8f1ea;
   --loss: #a85a4e;
-  --loss-wash: #f3e9e6;
+  --loss-wash: #f5e9e6;
 
   --focus: var(--khata);
-  --radius: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
+
+  --shadow-sm: 0 1px 2px rgb(31 31 34 / 0.04), 0 1px 1px rgb(31 31 34 / 0.03);
+  --shadow-md: 0 8px 24px -10px rgb(31 31 34 / 0.16), 0 2px 6px -2px rgb(31 31 34 / 0.06);
+  --shadow-lg: 0 24px 48px -16px rgb(31 31 34 / 0.28);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #18181a;
-    --sheet: #1e1e20;
-    --sheet-alt: #26262a;
+    --paper: #131316;
+    --sheet: #1b1b1f;
+    --sheet-alt: #232328;
 
-    --ink: #e9e9e7;
-    --ink-soft: #a6a39b;
-    --ink-faint: #726f67;
+    --ink: #ececea;
+    --ink-soft: #a9a69e;
+    --ink-faint: #75726b;
 
-    --rule: #2c2c2e;
-    --rule-strong: #38383b;
+    --rule: #2a2a2f;
+    --rule-strong: #393940;
 
-    --khata: #9598d9;
-    --khata-hover: #aeb1e3;
-    --khata-wash: #23253f;
-    --on-khata: var(--paper);
+    --khata: #9da0e3;
+    --khata-hover: #b6b8ec;
+    --khata-wash: #23254a;
+    --khata-glow: #5f63c9;
+    --on-khata: #131316;
 
-    --sayapatri: #e0a83c;
-    --sayapatri-wash: #332506;
+    --sayapatri: #e2ab42;
+    --sayapatri-wash: #33260a;
 
-    --gain: #6fa37d;
-    --gain-wash: #1b2620;
-    --loss: #c4796b;
-    --loss-wash: #2b1e1a;
+    --gain: #72ad82;
+    --gain-wash: #18261d;
+    --loss: #d08072;
+    --loss-wash: #2d1e1a;
 
-    --focus: var(--khata);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 10px 28px -12px rgb(0 0 0 / 0.7), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 28px 56px -16px rgb(0 0 0 / 0.8);
   }
 }
 
@@ -98,13 +106,25 @@
   --color-rule: var(--rule);
   --color-rule-strong: var(--rule-strong);
   --color-khata: var(--khata);
+  --color-khata-hover: var(--khata-hover);
   --color-khata-wash: var(--khata-wash);
+  --color-on-khata: var(--on-khata);
   --color-sayapatri: var(--sayapatri);
   --color-sayapatri-wash: var(--sayapatri-wash);
   --color-gain: var(--gain);
   --color-gain-wash: var(--gain-wash);
   --color-loss: var(--loss);
   --color-loss-wash: var(--loss-wash);
+
+  /* Named sizes for the app's two in-between steps, so pages never need a
+     one-off text-[13px]: `text-body` (13px) for dense UI copy, `text-meta`
+     (11px) for captions, `text-micro` (10px) for axis-style labels. */
+  --text-body: 0.8125rem;
+  --text-meta: 0.6875rem;
+  --text-micro: 0.625rem;
+
+  --container-page: 88rem;
+  --shadow-raised: var(--shadow-md);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-plex-mono);
@@ -118,16 +138,21 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
   }
 
   body {
     background-color: var(--paper);
+    /* A faint indigo glow behind the masthead, and the ruled lines of a
+       ledger page fading out beneath it. */
+    background-image:
+      radial-gradient(60rem 28rem at 15% -8rem, color-mix(in srgb, var(--khata-glow) 16%, transparent), transparent 70%),
+      radial-gradient(40rem 22rem at 95% -6rem, color-mix(in srgb, var(--sayapatri) 9%, transparent), transparent 70%);
+    background-repeat: no-repeat;
     color: var(--ink);
     font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   }
 
-  /* A small, quiet radius everywhere — soft enough to not read as decoration,
-     present enough to not read as a spreadsheet. */
   button,
   input,
   select,
@@ -142,7 +167,7 @@
 
   :focus-visible {
     outline: 2px solid var(--focus);
-    outline-offset: 1px;
+    outline-offset: 2px;
   }
 
   ::selection {
@@ -151,14 +176,16 @@
   }
 
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: var(--rule-strong);
+    border: 2px solid var(--paper);
+    border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: var(--ink-faint);
@@ -180,13 +207,29 @@
   }
   @media (min-width: 640px) {
     .page {
-      padding: 1.5rem 1.5rem 4rem;
+      padding: 1.75rem 1.5rem 4.5rem;
     }
   }
 
-  /* The binding-edge spine read as too heavy a graphic device in practice —
-     retired. `.bound`/`.binding-label` are kept as harmless no-ops so no
-     page markup needs to change. */
+  /* Narrow reading column for prose pages (about, legal, contact). */
+  .page-narrow {
+    max-width: 60rem;
+  }
+
+  /* Each top-level section of a page rises in, one after the other.
+     `backwards` fill only, so no transform lingers once the animation ends
+     (a lingering transform would trap fixed-position modals). */
+  .page > div > :not(.scrim) {
+    animation: rise 520ms var(--ease-out) backwards;
+  }
+  .page > div > :nth-child(2) { animation-delay: 60ms; }
+  .page > div > :nth-child(3) { animation-delay: 120ms; }
+  .page > div > :nth-child(4) { animation-delay: 180ms; }
+  .page > div > :nth-child(5) { animation-delay: 240ms; }
+  .page > div > :nth-child(6) { animation-delay: 300ms; }
+  .page > div > :nth-child(7) { animation-delay: 360ms; }
+  .page > div > :nth-child(n + 8) { animation-delay: 420ms; }
+
   .bound {
     position: relative;
   }
@@ -196,44 +239,91 @@
 
   /* ---- Masthead -------------------------------------------------------- */
 
+  /* The page's title band: a lit sheet with the ascending-bar mark drawn
+     faintly into its corner. */
   .masthead {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--rule-strong);
+    gap: 0.875rem;
+    padding: 1.25rem 1.125rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--khata-wash) 85%, transparent), transparent 55%),
+      var(--sheet);
+    box-shadow: var(--shadow-sm);
+  }
+  .masthead::after {
+    /* Decorative; only shown where there is room beside the title. */
+    display: none;
+    content: "";
+    position: absolute;
+    z-index: -1;
+    right: 1.5rem;
+    top: 1.25rem;
+    width: 3.5rem;
+    height: 2.75rem;
+    opacity: 0.12;
+    background:
+      linear-gradient(var(--khata), var(--khata)) 0 100% / 26% 40% no-repeat,
+      linear-gradient(var(--khata), var(--khata)) 50% 100% / 26% 70% no-repeat,
+      linear-gradient(var(--khata), var(--khata)) 100% 100% / 26% 100% no-repeat;
+    pointer-events: none;
   }
   @media (min-width: 640px) {
+    .masthead::after {
+      display: block;
+    }
     .masthead {
       flex-direction: row;
       align-items: flex-end;
       justify-content: space-between;
       gap: 1.5rem;
+      padding: 1.625rem 1.75rem;
     }
   }
 
   .masthead h1,
   .page-title {
     font-family: var(--font-geist-sans), ui-sans-serif, sans-serif;
-    font-weight: 600;
-    font-size: 1.625rem;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    font-weight: 650;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
     color: var(--ink);
   }
   @media (min-width: 640px) {
     .masthead h1,
     .page-title {
-      font-size: 1.875rem;
+      font-size: 2.25rem;
     }
   }
 
   .masthead-note {
-    margin-top: 0.25rem;
-    font-size: 0.8125rem;
-    line-height: 1.5;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.55;
     color: var(--ink-soft);
     max-width: 46rem;
+  }
+
+  /* Small "back to" link above a masthead title. */
+  .crumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    transition: color 150ms ease, gap 150ms ease;
+  }
+  .crumb:hover {
+    color: var(--khata);
+    gap: 0.5rem;
   }
 
   /* Fiscal period stamp — Nepal's year, not the Gregorian one. */
@@ -242,8 +332,9 @@
     align-items: center;
     gap: 0.5rem;
     border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    padding: 0.3125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--sheet);
+    padding: 0.375rem 0.75rem;
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.6875rem;
     line-height: 1;
@@ -259,50 +350,230 @@
   /* ---- Sheets ---------------------------------------------------------- */
 
   .sheet {
+    /* Lets cards shrink inside grid/flex layouts so wide content (charts,
+       tables) scrolls or resizes instead of pushing past the screen edge. */
+    min-width: 0;
     background: var(--sheet);
     border: 1px solid var(--rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 220ms ease, border-color 220ms ease;
+  }
+  .sheet:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--rule-strong);
   }
 
   .sheet-hd {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 0.5rem 1rem;
-    padding: 0.625rem 0.875rem;
+    padding: 0.875rem 1.125rem;
     border-bottom: 1px solid var(--rule);
-    background: var(--sheet-alt);
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
 
   .sheet-hd h2,
   .sheet-hd h3,
   .sheet-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-family: var(--font-geist-sans), ui-sans-serif, sans-serif;
-    font-size: 0.9375rem;
+    font-size: 1rem;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
     color: var(--ink);
+  }
+  /* A short indigo tab before every sheet title, like a ledger page marker. */
+  .sheet-hd h2::before,
+  .sheet-hd h3::before,
+  .sheet-title::before {
+    content: "";
+    flex: none;
+    width: 3px;
+    height: 0.95em;
+    border-radius: 2px;
+    background: linear-gradient(var(--khata), var(--khata-glow));
+  }
+  /* Nested titles (a title wrapped by another heading) get one marker only. */
+  .sheet-hd h2 .sheet-title::before,
+  .sheet-hd h3 .sheet-title::before {
+    display: none;
   }
 
   .sheet-sub {
+    margin-top: 0.125rem;
     font-size: 0.75rem;
     line-height: 1.5;
     color: var(--ink-soft);
   }
 
   .sheet-bd {
-    padding: 0.875rem;
+    padding: 1rem 1.125rem;
   }
 
   .sheet-ft {
-    padding: 0.625rem 0.875rem;
+    padding: 0.75rem 1.125rem;
     border-top: 1px solid var(--rule);
     background: var(--sheet-alt);
-    border-radius: 0 0 var(--radius) var(--radius);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     font-size: 0.75rem;
     color: var(--ink-soft);
+  }
+
+  /* ---- Panels -------------------------------------------------------- */
+
+  .panel {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    background: var(--sheet-alt);
+  }
+  .panel-raised {
+    background: var(--sheet);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ---- KPI tiles ------------------------------------------------------- */
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  @media (min-width: 1024px) {
+    .kpi-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+    }
+  }
+
+  .kpi {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+    padding: 0.875rem 1rem 1rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    background: var(--sheet);
+    box-shadow: var(--shadow-sm);
+    transition: transform 220ms var(--ease-out), box-shadow 220ms ease, border-color 220ms ease;
+  }
+  .kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--rule-strong);
+  }
+  /* Accent rail along the top edge, tinted by the tile's tone. */
+  .kpi::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 3px;
+    background: var(--kpi-tone, var(--khata));
+    opacity: 0.85;
+  }
+  .kpi-gain { --kpi-tone: var(--gain); }
+  .kpi-loss { --kpi-tone: var(--loss); }
+  .kpi-warn { --kpi-tone: var(--sayapatri); }
+
+  .kpi-lbl {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .kpi-val {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @media (min-width: 640px) {
+    .kpi-val {
+      font-size: 1.5rem;
+    }
+  }
+  .kpi-foot {
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    color: var(--ink-faint);
+  }
+
+  /* ---- Meter ----------------------------------------------------------- */
+
+  /* A thin progress rule that fills on load. The <Meter> component sets the
+     inner span's width from data. */
+  .meter {
+    display: block;
+    height: 6px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--sheet-alt);
+    box-shadow: inset 0 0 0 1px var(--rule);
+  }
+  .meter > span {
+    display: block;
+    height: 100%;
+    width: var(--meter, 0%);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--khata), var(--khata-glow));
+    animation: meter-fill 900ms var(--ease-out) backwards 200ms;
+    transform-origin: left center;
+  }
+  .meter-gain > span { background: linear-gradient(90deg, var(--gain), color-mix(in srgb, var(--gain) 55%, var(--sheet))); }
+  .meter-loss > span { background: linear-gradient(90deg, var(--loss), color-mix(in srgb, var(--loss) 55%, var(--sheet))); }
+  .meter-warn > span { background: linear-gradient(90deg, var(--sayapatri), color-mix(in srgb, var(--sayapatri) 55%, var(--sheet))); }
+
+  /* ---- Navigation tabs ------------------------------------------------- */
+
+  .navtab {
+    flex-shrink: 0;
+    border-radius: 999px;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--ink-soft);
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+  .navtab:hover {
+    background: var(--sheet-alt);
+    color: var(--ink);
+  }
+  .navtab[aria-current="page"] {
+    background: var(--khata-wash);
+    color: var(--khata);
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--khata) 25%, transparent);
+  }
+  .navtab-sm {
+    padding: 0.375rem 0.875rem;
+    font-size: 0.75rem;
+  }
+
+  .footer-link {
+    display: inline-block;
+    transition: color 200ms ease, transform 200ms var(--ease-out);
+  }
+  .footer-link:hover {
+    color: var(--khata);
+    transform: translateX(2px);
+  }
+
+  /* Content revealed on demand (an opened accordion answer). */
+  .reveal {
+    animation: rise 320ms var(--ease-out) backwards;
   }
 
   /* ---- Ledger rows ----------------------------------------------------- */
@@ -317,19 +588,25 @@
     grid-template-columns: auto 1fr auto;
     align-items: baseline;
     gap: 0.5rem;
-    padding: 0.5rem 0;
+    padding: 0.625rem 0.5rem;
+    margin-inline: -0.5rem;
     border-bottom: 1px solid var(--rule);
+    border-radius: 6px;
+    transition: background-color 150ms ease;
+  }
+  .ledger-row:hover {
+    background: color-mix(in srgb, var(--khata-wash) 55%, transparent);
   }
   .ledger-row:last-child {
     border-bottom: 0;
   }
 
-  /* Totals close with a slightly heavier single rule, not a double one. */
   .ledger-row.is-total {
     border-top: 2px solid var(--rule-strong);
     border-bottom: 0;
+    border-radius: 0 0 6px 6px;
     margin-top: 0.25rem;
-    padding-top: 0.625rem;
+    padding-top: 0.75rem;
   }
 
   .ledger-row .lbl {
@@ -338,7 +615,7 @@
   }
   .ledger-row.is-total .lbl {
     color: var(--ink);
-    font-weight: 500;
+    font-weight: 600;
   }
 
   /* Dotted leader, as printed. Decorative — hidden from assistive tech. */
@@ -354,6 +631,13 @@
     background-size: 5px 1px;
     background-repeat: repeat-x;
     opacity: 0.8;
+  }
+
+  /* Definition-list rows (<dt>/<dd>): text values may wrap on narrow screens. */
+  .ledger-row > dd {
+    min-width: 0;
+    white-space: normal;
+    text-align: right;
   }
 
   .ledger-note {
@@ -382,12 +666,13 @@
     font-weight: 500;
   }
   .fig-lg {
-    font-size: 1.375rem;
+    font-size: 1.5rem;
     font-weight: 600;
+    letter-spacing: -0.025em;
   }
   @media (min-width: 640px) {
     .fig-lg {
-      font-size: 1.625rem;
+      font-size: 1.75rem;
     }
   }
   .fig-gain {
@@ -400,7 +685,6 @@
     color: var(--ink-soft);
   }
 
-  /* The "Rs" that precedes an amount is a unit, not a number. */
   .unit {
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.6875rem;
@@ -413,46 +697,54 @@
   .ticker {
     display: inline-block;
     min-width: 5.25rem;
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    background: var(--sheet-alt);
-    padding: 0.125rem 0.375rem;
+    border: 1px solid color-mix(in srgb, var(--khata) 30%, var(--rule-strong));
+    border-radius: 6px;
+    background: var(--khata-wash);
+    padding: 0.1875rem 0.5rem;
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.75rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-align: center;
-    color: var(--ink);
+    color: var(--khata);
   }
 
   /* ---- Floor sheet table ----------------------------------------------- */
 
   .floor {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     text-align: left;
   }
 
   .floor thead th {
-    padding: 0.5rem 0.625rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.625rem 0.75rem;
     border-bottom: 1px solid var(--rule-strong);
     background: var(--sheet-alt);
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.6875rem;
     font-weight: 500;
-    color: var(--ink-faint);
+    color: var(--ink-soft);
     white-space: nowrap;
   }
 
   .floor tbody td {
-    padding: 0.5rem 0.625rem;
+    padding: 0.625rem 0.75rem;
     border-bottom: 1px solid var(--rule);
     font-size: 0.8125rem;
     vertical-align: top;
+    transition: background-color 150ms ease;
   }
 
-  .floor tbody tr:hover {
-    background: var(--sheet-alt);
+  .floor tbody tr:hover td {
+    background: color-mix(in srgb, var(--khata-wash) 55%, transparent);
+  }
+  .floor tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--khata);
   }
 
   .floor tbody tr:last-child td {
@@ -466,19 +758,23 @@
     white-space: nowrap;
   }
 
-  /* Hairline weight bar. A rule of varying length, not a rounded pill. */
   .weightbar {
     display: block;
-    height: 3px;
-    width: 3rem;
+    height: 4px;
+    width: 3.5rem;
+    border-radius: 999px;
+    overflow: hidden;
     background: var(--rule);
     margin-left: auto;
-    margin-top: 0.25rem;
+    margin-top: 0.3125rem;
   }
   .weightbar > span {
     display: block;
     height: 100%;
-    background: var(--khata);
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--khata), var(--khata-glow));
+    animation: meter-fill 900ms var(--ease-out) backwards 250ms;
+    transform-origin: left center;
   }
 
   /* ---- Tags ------------------------------------------------------------ */
@@ -486,11 +782,11 @@
   .tag {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3125rem;
     border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
+    border-radius: 999px;
     background: var(--sheet-alt);
-    padding: 0.0625rem 0.375rem;
+    padding: 0.125rem 0.5rem;
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.6875rem;
     line-height: 1.5;
@@ -498,23 +794,23 @@
     white-space: nowrap;
   }
   .tag-gain {
-    border-color: color-mix(in srgb, var(--gain) 45%, transparent);
+    border-color: color-mix(in srgb, var(--gain) 40%, transparent);
     background: var(--gain-wash);
     color: var(--gain);
   }
   .tag-loss {
-    border-color: color-mix(in srgb, var(--loss) 45%, transparent);
+    border-color: color-mix(in srgb, var(--loss) 40%, transparent);
     background: var(--loss-wash);
     color: var(--loss);
   }
   .tag-warn {
-    border-color: color-mix(in srgb, var(--sayapatri) 45%, transparent);
+    border-color: color-mix(in srgb, var(--sayapatri) 40%, transparent);
     background: var(--sayapatri-wash);
     color: var(--sayapatri);
     font-weight: 500;
   }
   .tag-khata {
-    border-color: color-mix(in srgb, var(--khata) 45%, transparent);
+    border-color: color-mix(in srgb, var(--khata) 40%, transparent);
     background: var(--khata-wash);
     color: var(--khata);
     font-weight: 500;
@@ -523,103 +819,153 @@
   /* ---- Buttons --------------------------------------------------------- */
 
   .btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
     border: 1px solid var(--rule-strong);
-    background: transparent;
+    border-radius: var(--radius);
+    background: var(--sheet);
     color: var(--ink);
-    padding: 0.4375rem 0.75rem;
+    padding: 0.5rem 0.875rem;
     font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1.2;
     white-space: nowrap;
-    transition: background-color 120ms ease, color 120ms ease,
-      border-color 120ms ease;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease,
+      box-shadow 200ms ease, transform 200ms var(--ease-out);
   }
   .btn:hover:not(:disabled) {
     background: var(--sheet-alt);
     border-color: var(--ink-faint);
+    transform: translateY(-1px);
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
   }
   .btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+    box-shadow: none;
   }
 
-  /* Primary action: an outline that inverts on hover, not a solid fill. */
+  /* Primary action: a filled indigo button with a soft glow on hover. */
   .btn-ink {
-    border-color: var(--khata);
-    background: transparent;
-    color: var(--khata);
+    border-color: transparent;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--khata) 88%, white), var(--khata));
+    color: var(--on-khata);
+    box-shadow: var(--shadow-sm), inset 0 1px 0 rgb(255 255 255 / 0.14);
   }
   .btn-ink:hover:not(:disabled) {
-    background: var(--khata);
+    border-color: transparent;
+    background: linear-gradient(180deg, var(--khata), var(--khata-hover));
     color: var(--on-khata);
+    box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--khata) 70%, transparent);
   }
 
   /* Secondary emphasis — locks, guest mode, reconciliation. */
   .btn-warn {
-    border-color: var(--sayapatri);
-    background: transparent;
+    border-color: color-mix(in srgb, var(--sayapatri) 60%, transparent);
+    background: var(--sayapatri-wash);
     color: var(--sayapatri);
   }
   .btn-warn:hover:not(:disabled) {
+    border-color: var(--sayapatri);
     background: var(--sayapatri);
     color: var(--on-khata);
   }
 
   .btn-danger {
-    border-color: var(--loss);
-    background: transparent;
+    border-color: color-mix(in srgb, var(--loss) 60%, transparent);
+    background: var(--sheet);
     color: var(--loss);
   }
   .btn-danger:hover:not(:disabled) {
+    border-color: var(--loss);
     background: var(--loss);
     color: var(--on-khata);
   }
 
   .btn-sm {
-    padding: 0.25rem 0.5rem;
+    padding: 0.3125rem 0.625rem;
     font-size: 0.75rem;
+  }
+  .btn-lg {
+    padding: 0.6875rem 1.125rem;
+    font-size: 0.875rem;
   }
   .btn-block {
     width: 100%;
   }
 
-  /* A text action, in the brand accent. */
   .link-ink {
     color: var(--khata);
     font-size: 0.8125rem;
     font-weight: 500;
     text-underline-offset: 3px;
     text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--khata) 40%, transparent);
-    transition: text-decoration-color 120ms ease;
+    text-decoration-color: color-mix(in srgb, var(--khata) 35%, transparent);
+    transition: text-decoration-color 150ms ease, color 150ms ease;
   }
   .link-ink:hover {
-    text-decoration-color: var(--khata);
+    color: var(--khata-hover);
+    text-decoration-color: currentColor;
+  }
+  .link-ink:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .link-sm {
+    font-size: 0.75rem;
+  }
+  .link-xs {
+    font-size: 0.6875rem;
+  }
+  /* Tones for inline text actions (reconcile, delete, remove). */
+  .link-warn {
+    color: var(--sayapatri);
+    text-decoration-color: color-mix(in srgb, var(--sayapatri) 35%, transparent);
+  }
+  .link-warn:hover {
+    color: var(--sayapatri);
+  }
+  .link-danger {
+    color: var(--loss);
+    text-decoration-color: color-mix(in srgb, var(--loss) 35%, transparent);
+  }
+  .link-danger:hover {
+    color: var(--loss);
+  }
+  .link-quiet {
+    color: var(--ink-faint);
+    font-weight: 400;
+    text-decoration-color: transparent;
+  }
+  .link-quiet:hover {
+    color: var(--loss);
   }
 
   /* ---- Segmented control ------------------------------------------------ */
 
   .seg {
     display: inline-flex;
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
     background: var(--sheet-alt);
     overflow: hidden;
   }
   .seg > button {
-    padding: 0.375rem 0.6875rem;
+    white-space: nowrap;
+    padding: 0.375rem 0.8125rem;
+    border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--ink-soft);
-    border-right: 1px solid var(--rule-strong);
-    transition: background-color 120ms ease, color 120ms ease;
-  }
-  .seg > button:last-child {
-    border-right: 0;
+    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
   }
   .seg > button:hover {
     color: var(--ink);
@@ -627,6 +973,7 @@
   .seg > button[aria-pressed="true"] {
     background: var(--khata);
     color: var(--on-khata);
+    box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--khata) 80%, transparent);
   }
 
   /* ---- Fields ---------------------------------------------------------- */
@@ -636,7 +983,7 @@
     font-size: 0.75rem;
     font-weight: 500;
     color: var(--ink-soft);
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.3125rem;
   }
 
   .field {
@@ -645,11 +992,11 @@
     border-radius: var(--radius);
     background: var(--sheet);
     color: var(--ink);
-    padding: 0.4375rem 0.625rem;
+    padding: 0.5rem 0.6875rem;
     /* 16px on small screens so iOS does not zoom the viewport on focus. */
     font-size: 1rem;
     line-height: 1.4;
-    transition: border-color 120ms ease;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
   }
   @media (min-width: 640px) {
     .field {
@@ -662,9 +1009,15 @@
   .field:hover:not(:disabled) {
     border-color: var(--ink-faint);
   }
+  .field:focus {
+    outline: none;
+    border-color: var(--khata);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--khata) 22%, transparent);
+  }
   .field:disabled {
-    opacity: 0.55;
+    opacity: 0.6;
     background: var(--sheet-alt);
+    cursor: not-allowed;
   }
   .field-num {
     font-family: var(--font-plex-mono), ui-monospace, monospace;
@@ -672,34 +1025,107 @@
     text-align: right;
   }
   .field-hint {
-    margin-top: 0.25rem;
+    margin-top: 0.3125rem;
     font-size: 0.6875rem;
     line-height: 1.45;
     color: var(--ink-faint);
   }
 
-  /* Amount field with a currency gutter printed into it. */
   .field-wrap {
     position: relative;
   }
   .field-wrap > .field {
-    padding-left: 2.75rem;
+    padding-left: 2.875rem;
   }
   .field-wrap > .prefix {
     position: absolute;
     inset-block: 1px;
     left: 1px;
-    width: 2.25rem;
+    width: 2.375rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-right: 1px solid var(--rule);
     background: var(--sheet-alt);
-    border-radius: var(--radius) 0 0 var(--radius);
+    border-radius: calc(var(--radius) - 1px) 0 0 calc(var(--radius) - 1px);
     font-family: var(--font-plex-mono), ui-monospace, monospace;
     font-size: 0.6875rem;
     color: var(--ink-faint);
     pointer-events: none;
+  }
+
+  /* Switch — a checkbox styled as an on/off toggle. Wrap the input and a
+     <span className="toggle-track" /> in a <label className="toggle">. */
+  .toggle {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    cursor: pointer;
+  }
+  .toggle > input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  .toggle-track {
+    position: relative;
+    width: 2.75rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: var(--rule-strong);
+    transition: background-color 200ms ease;
+  }
+  .toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: calc(1.5rem - 6px);
+    height: calc(1.5rem - 6px);
+    border-radius: 999px;
+    background: var(--sheet);
+    box-shadow: var(--shadow-sm);
+    transition: transform 240ms var(--ease-out);
+  }
+  .toggle > input:checked + .toggle-track {
+    background: var(--khata);
+  }
+  .toggle > input:checked + .toggle-track::after {
+    transform: translateX(1.25rem);
+  }
+  .toggle > input:focus-visible + .toggle-track {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  .toggle > input:disabled + .toggle-track {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Choice card — a radio option presented as a selectable sheet. */
+  .choice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius);
+    background: var(--sheet);
+    cursor: pointer;
+    transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  }
+  .choice:hover {
+    border-color: var(--ink-faint);
+  }
+  .choice:has(input:checked) {
+    border-color: var(--khata);
+    background: color-mix(in srgb, var(--khata-wash) 60%, var(--sheet));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--khata) 15%, transparent);
+  }
+  .choice input {
+    margin-top: 0.1875rem;
+    accent-color: var(--khata);
   }
 
   /* ---- Notices --------------------------------------------------------- */
@@ -711,15 +1137,15 @@
     justify-content: space-between;
     gap: 0.75rem;
     border: 1px solid var(--rule-strong);
-    border-left-width: 3px;
+    border-left-width: 4px;
     border-radius: var(--radius);
     background: var(--sheet);
-    padding: 0.625rem 0.875rem;
+    padding: 0.75rem 1rem;
     font-size: 0.8125rem;
-    line-height: 1.5;
+    line-height: 1.55;
     color: var(--ink);
+    animation: rise 380ms var(--ease-out) backwards;
   }
-  /* Guest mode, stale rates, reconciliation — the marigold secondary accent. */
   .note-warn {
     border-color: color-mix(in srgb, var(--sayapatri) 35%, transparent);
     border-left-color: var(--sayapatri);
@@ -735,14 +1161,21 @@
     border-left-color: var(--loss);
     background: var(--loss-wash);
   }
+  .note-khata {
+    border-color: color-mix(in srgb, var(--khata) 30%, transparent);
+    border-left-color: var(--khata);
+    background: var(--khata-wash);
+  }
 
   /* ---- Empty states ---------------------------------------------------- */
 
   .empty {
     border: 1px dashed var(--rule-strong);
-    border-radius: var(--radius);
-    background: var(--sheet-alt);
-    padding: 2rem 1rem;
+    border-radius: var(--radius-lg);
+    background:
+      repeating-linear-gradient(0deg, transparent 0 27px, color-mix(in srgb, var(--rule) 70%, transparent) 27px 28px),
+      var(--sheet-alt);
+    padding: 2.25rem 1rem;
     text-align: center;
   }
   .empty-mark {
@@ -766,6 +1199,170 @@
     color: var(--ink-soft);
   }
 
+  /* ---- Loading skeleton ------------------------------------------------ */
+
+  .skeleton {
+    display: block;
+    border-radius: var(--radius);
+    background:
+      linear-gradient(90deg, transparent, color-mix(in srgb, var(--sheet) 70%, transparent), transparent) 0 0 / 40% 100% no-repeat,
+      var(--sheet-alt);
+    animation: shimmer 1.3s ease-in-out infinite;
+  }
+
+  /* ---- Link tiles ------------------------------------------------------ */
+
+  /* A card that is itself a link — lifts and picks up the brand colour. */
+  .tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 1.125rem;
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    background: var(--sheet);
+    box-shadow: var(--shadow-sm);
+    transition: transform 220ms var(--ease-out), box-shadow 220ms ease, border-color 220ms ease;
+  }
+  .tile:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: color-mix(in srgb, var(--khata) 40%, var(--rule));
+  }
+  .tile-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    transition: color 150ms ease;
+  }
+  .tile-title::after {
+    content: "→";
+    color: var(--ink-faint);
+    transition: transform 220ms var(--ease-out), color 150ms ease;
+  }
+  .tile:hover .tile-title {
+    color: var(--khata);
+  }
+  .tile:hover .tile-title::after {
+    color: var(--khata);
+    transform: translateX(3px);
+  }
+  .tile-body {
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .tile-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-bottom: 0.25rem;
+    border-radius: 10px;
+    background: var(--khata-wash);
+    color: var(--khata);
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  /* ---- Long-form documents (about, legal pages) ------------------------ */
+
+  .doc {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--ink-soft);
+  }
+  .doc > * + * {
+    margin-top: 0.75rem;
+  }
+  .doc h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    margin-top: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .doc h2 .doc-num {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--khata);
+  }
+  .doc strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .doc ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding-left: 0;
+    list-style: none;
+  }
+  .doc li {
+    position: relative;
+    padding-left: 1.125rem;
+  }
+  .doc li::before {
+    content: "";
+    position: absolute;
+    left: 0.125rem;
+    top: 0.6875rem;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--khata) 55%, transparent);
+  }
+  .doc a {
+    color: var(--khata);
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, var(--khata) 35%, transparent);
+  }
+  .doc a:hover {
+    text-decoration-color: currentColor;
+  }
+
+  /* Table of contents for long documents. */
+  .toc {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+  .toc a {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  .toc a:hover {
+    background: var(--khata-wash);
+    color: var(--khata);
+  }
+  .toc .doc-num {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    color: var(--ink-faint);
+    padding-top: 0.0625rem;
+  }
+
   /* ---- Modals ---------------------------------------------------------- */
 
   .scrim {
@@ -777,38 +1374,41 @@
     justify-content: center;
     padding: 1rem;
     overflow-y: auto;
-    background: color-mix(in srgb, var(--ink) 45%, transparent);
+    /* Never pick up section spacing from the page it is rendered in. */
+    margin: 0 !important;
+    background: color-mix(in srgb, var(--ink) 40%, transparent);
+    backdrop-filter: blur(3px);
+    animation: fade 180ms ease backwards;
   }
 
-  /* A soft, quiet shadow — not a graphic offset. */
   .dialog {
     width: 100%;
     max-width: 30rem;
     border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     background: var(--sheet);
-    box-shadow: 0 12px 32px -8px color-mix(in srgb, var(--ink) 20%, transparent);
+    box-shadow: var(--shadow-lg);
     margin-block: auto;
+    animation: pop 260ms var(--ease-out) backwards;
   }
   .dialog-hd {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1.125rem;
     border-bottom: 1px solid var(--rule);
-    background: var(--sheet-alt);
-    border-radius: var(--radius) var(--radius) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   }
   .dialog-hd h3 {
     font-family: var(--font-geist-sans), sans-serif;
     font-size: 1.0625rem;
     font-weight: 600;
-    line-height: 1.15;
+    line-height: 1.2;
     color: var(--ink);
   }
   .dialog-bd {
-    padding: 1rem;
+    padding: 1.125rem;
   }
   .dialog-ft {
     display: flex;
@@ -816,10 +1416,10 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
+    padding: 0.875rem 1.125rem;
     border-top: 1px solid var(--rule);
     background: var(--sheet-alt);
-    border-radius: 0 0 var(--radius) var(--radius);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
 
   /* ---- Utilities ------------------------------------------------------- */
@@ -837,8 +1437,50 @@
   }
 }
 
-/* Keep the one true animation honest: a live-price pulse that actually means
-   something is live. Nothing else in the app animates on entry. */
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes meter-fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -40% 0, 0 0;
+  }
+  to {
+    background-position: 140% 0, 0 0;
+  }
+}
+
+/* Live-price pulse: means something is genuinely live. */
 @keyframes tick {
   0%,
   100% {
@@ -849,14 +1491,19 @@
   }
 }
 .pulse-live {
+  border-radius: 999px;
   animation: tick 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }

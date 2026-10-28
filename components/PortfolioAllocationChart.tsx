@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { HoldingAnalytics } from '@/types';
 import { formatNepaliCurrency } from '@/lib/calculations/finance';
+import { EmptyBody, EmptyMark, EmptyState, EmptyTitle, Panel, Swatch } from '@/components/ui';
 
 /**
  * Component properties for PortfolioAllocationChart.
@@ -86,13 +87,13 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
 
   if (isEmpty) {
     return (
-      <div className="empty">
-        <div className="empty-mark">[ 0.00% ]</div>
-        <p className="empty-title">No equity holdings logged</p>
-        <p className="empty-body">
+      <EmptyState>
+        <EmptyMark>[ 0.00% ]</EmptyMark>
+        <EmptyTitle>No equity holdings logged</EmptyTitle>
+        <EmptyBody>
           Add stock holdings to view your NEPSE equity allocation weights.
-        </p>
-      </div>
+        </EmptyBody>
+      </EmptyState>
     );
   }
 
@@ -105,12 +106,15 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
               data={chartData}
               cx="50%"
               cy="50%"
-              innerRadius={48}
-              outerRadius={76}
+              innerRadius={52}
+              outerRadius={80}
               paddingAngle={2}
+              cornerRadius={4}
               dataKey="value"
-              stroke="var(--rule)"
-              strokeWidth={1}
+              stroke="var(--sheet)"
+              strokeWidth={2}
+              animationDuration={900}
+              animationEasing="ease-out"
             >
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -121,11 +125,11 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
                 if (active && payload && payload.length) {
                   const data = payload[0].payload;
                   return (
-                    <div className="border border-rule bg-sheet p-2.5 text-xs">
+                    <Panel raised className="p-2.5 text-xs">
                       <div className="flex items-center gap-1.5 font-medium text-ink">
-                        <span className="h-2 w-2" style={{ backgroundColor: data.color }} />
+                        <Swatch color={data.color} />
                         <span className="font-mono">{data.name}</span>
-                        <span className="max-w-[120px] truncate text-[10px] font-normal text-ink-faint">
+                        <span className="max-w-[120px] truncate text-micro font-normal text-ink-faint">
                           {data.fullName}
                         </span>
                       </div>
@@ -135,7 +139,7 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
                       <div className="fig fig-sm text-ink-faint">
                         {data.percentage.toFixed(2)}% of holdings
                       </div>
-                    </div>
+                    </Panel>
                   );
                 }
                 return null;
@@ -153,9 +157,9 @@ export const PortfolioAllocationChart: React.FC<PortfolioAllocationChartProps> =
             className="flex items-center justify-between gap-2 border-b border-rule py-2 last:border-b-0"
           >
             <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0" style={{ backgroundColor: item.color }} />
+              <Swatch color={item.color} />
               <span className="ticker shrink-0">{item.name}</span>
-              <span className="truncate text-[11px] text-ink-faint">{item.fullName}</span>
+              <span className="truncate text-meta text-ink-faint">{item.fullName}</span>
             </div>
             <span className="fig fig-sm shrink-0">{item.percentage.toFixed(1)}%</span>
           </div>

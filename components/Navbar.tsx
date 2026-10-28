@@ -12,6 +12,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Logomark } from '@/components/Logomark';
+import { Button, ButtonLink } from '@/components/ui';
 
 const NAV_LINKS = [
   { href: '/', label: 'Dashboard', short: 'Dashboard' },
@@ -54,18 +55,20 @@ export const Navbar = () => {
     href === '/' ? pathname === '/' || pathname === '/dashboard' : pathname.startsWith(href);
 
   return (
-    <header className="sticky top-0 z-40 w-full overflow-hidden border-b border-rule-strong bg-paper/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 w-full overflow-hidden border-b border-rule bg-paper/80 backdrop-blur-md backdrop-saturate-150">
       {/* Row 1 — spine stamp, desktop tabs, auth */}
-      <div className="mx-auto flex h-14 max-w-[88rem] items-center justify-between gap-3 px-3 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2.5">
-          <Logomark size={32} />
+      <div className="mx-auto flex h-14 max-w-page items-center justify-between gap-3 px-3 sm:px-6">
+        <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+          <span className="transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105">
+            <Logomark size={32} />
+          </span>
           <span className="font-display text-lg font-semibold leading-none text-ink">
             FinanceDealer
           </span>
         </Link>
 
         {/* Desktop tabs */}
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 md:flex">
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 md:flex">
           {NAV_LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -73,11 +76,7 @@ export const Navbar = () => {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={`border-b-2 px-2.5 py-1.5 text-[13px] transition-colors lg:px-3 ${
-                  active
-                    ? 'border-khata font-medium text-khata'
-                    : 'border-transparent text-ink-soft hover:text-ink'
-                }`}
+                className="navtab"
               >
                 {link.label}
               </Link>
@@ -89,25 +88,25 @@ export const Navbar = () => {
         <div className="flex shrink-0 items-center gap-2">
           {userEmail ? (
             <>
-              <span className="hidden max-w-[11rem] truncate border border-rule bg-sheet-alt px-2 py-1 font-mono text-[11px] text-ink-soft lg:inline-block">
+              <span className="hidden max-w-[11rem] truncate rounded-full border border-rule bg-sheet-alt px-2.5 py-1 font-mono text-meta text-ink-soft lg:inline-block">
                 {userEmail}
               </span>
-              <button type="button" onClick={handleSignOut} className="btn btn-sm">
+              <Button size="sm" type="button" onClick={handleSignOut}>
                 Sign out
-              </button>
+              </Button>
             </>
           ) : (
-            <Link href="/login" className="btn btn-ink btn-sm">
+            <ButtonLink variant="primary" size="sm" href="/login">
               Sign in
-            </Link>
+            </ButtonLink>
           )}
         </div>
       </div>
 
       {/* Row 2 — mobile tab strip. Its own row and its own scroll container, so
           long labels can never widen the page. */}
-      <nav className="scroll-x no-bar border-t border-rule bg-sheet-alt md:hidden">
-        <div className="flex w-max items-stretch">
+      <nav className="scroll-x no-bar border-t border-rule md:hidden">
+        <div className="flex w-max items-stretch gap-1 px-2 py-1.5">
           {NAV_LINKS.map((link) => {
             const active = isActive(link.href);
             return (
@@ -115,11 +114,7 @@ export const Navbar = () => {
                 key={link.href}
                 href={link.href}
                 aria-current={active ? 'page' : undefined}
-                className={`shrink-0 border-b-2 border-r border-r-rule px-3.5 py-2 text-xs transition-colors ${
-                  active
-                    ? 'border-b-khata bg-sheet font-medium text-khata'
-                    : 'border-b-transparent text-ink-soft'
-                }`}
+                className="navtab navtab-sm"
               >
                 {link.short}
               </Link>

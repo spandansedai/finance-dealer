@@ -6,8 +6,12 @@
  * See DESIGN.md §3.
  */
 
+'use client';
+
 import React from 'react';
+import { CountUp } from '@/components/CountUp';
 import { formatNepaliNumber } from '@/lib/calculations/finance';
+import { Tag } from '@/components/ui';
 
 type Tone = 'gain' | 'loss' | 'neutral' | 'mute';
 
@@ -56,28 +60,27 @@ export const LedgerRow: React.FC<LedgerRowProps> = ({
   total = false,
   large = false,
 }) => {
-  let figure: string;
-
-  if (value !== undefined) {
-    figure = value;
-  } else if (amount !== undefined) {
-    const negative = amount < 0;
-    const body = formatNepaliNumber(Math.abs(amount));
-    figure = negative ? `−${body}` : signed && amount > 0 ? `+${body}` : body;
-  } else {
-    figure = '0';
-  }
+  const formatAmount = (n: number) => {
+    const body = formatNepaliNumber(Math.abs(n));
+    return n < 0 ? `−${body}` : signed && n > 0 ? `+${body}` : body;
+  };
+  const figureClass = `fig ${large ? 'fig-lg' : 'fig-md'} ${TONE_CLASS[tone]}`;
 
   return (
     <div className={`ledger-row${total ? ' is-total' : ''}`}>
       <span className="lbl">
         {label}
-        {tag ? <span className="tag ml-2">{tag}</span> : null}
+        {tag ? <Tag className="ml-2">{tag}</Tag> : null}
       </span>
       <span className="leader" aria-hidden="true" />
-      <span className="whitespace-nowrap">
+      <span className={value !== undefined ? 'min-w-0 text-right' : 'whitespace-nowrap'}>
         {unit ? <span className="unit">{unit}</span> : null}
-        <span className={`fig ${large ? 'fig-lg' : 'fig-md'} ${TONE_CLASS[tone]}`}>{figure}</span>
+        {value !== undefined ? (
+          // Text values (formulas, notes) may wrap on narrow screens; amounts never do.
+          <span className={`${figureClass} whitespace-normal`}>{value}</span>
+        ) : (
+          <CountUp value={amount ?? 0} format={formatAmount} duration={700} className={figureClass} />
+        )}
       </span>
       {note ? <p className="ledger-note">{note}</p> : null}
     </div>

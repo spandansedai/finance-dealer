@@ -8,7 +8,23 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Logomark } from '@/components/Logomark';
 import { supabase } from '@/lib/supabase';
+import {
+  Button,
+  ButtonLink,
+  Card,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  CardSubtitle,
+  CardTitle,
+  FieldHint,
+  Input,
+  Label,
+  Notice,
+  PageShell,
+} from '@/components/ui';
 
 /**
  * Login & Registration Page component.
@@ -84,99 +100,127 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 bg-zinc-50 dark:bg-zinc-950">
-      <div className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 shadow-xs space-y-6">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
-            {mode === 'signin' ? 'Sign In' : 'Create Account'}
-          </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            {mode === 'signin'
-              ? 'Sign in to access your Finance-Dealer data.'
-              : 'Create an account to start tracking your finances.'}
+    <PageShell>
+      <div className="grid grid-cols-1 items-center gap-8 lg:min-h-[calc(100vh-12rem)] lg:grid-cols-2">
+        {/* What you get */}
+        <section className="hidden space-y-5 lg:block">
+          <Logomark size={44} />
+          <p className="page-title">
+            Your rupees, your lakhs,
+            <br />
+            your NEPSE scrips, in one book.
           </p>
-        </div>
+          <p className="masthead-note">
+            Sign in to keep your ledger, accounts, Dollar Card spending, salary plan and floor
+            sheet safely across devices.
+          </p>
+          <ul className="space-y-2.5 text-body text-ink-soft">
+            {[
+              'Records stored behind Row-Level Security, only ever visible to you',
+              'Live NEPSE prices and the NRB buying rate for Dollar Card entries',
+              'Optional summary emails on your own schedule',
+            ].map((point) => (
+              <li key={point} className="flex items-start gap-2.5">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-khata" aria-hidden="true" />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        {error && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs text-rose-600 dark:text-rose-300">
-            {error}
-          </div>
-        )}
+        {/* Form */}
+        <Card as="section" className="mx-auto w-full max-w-sm">
+          <CardHeader>
+            <div>
+              <CardTitle as="h1">{mode === 'signin' ? 'Sign in' : 'Create an account'}</CardTitle>
+              <CardSubtitle>
+                {mode === 'signin'
+                  ? 'Welcome back. Open your book where you left it.'
+                  : 'Free, and takes less than a minute.'}
+              </CardSubtitle>
+            </div>
+          </CardHeader>
 
-        {info && (
-          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-700 dark:text-emerald-300">
-            {info}
-          </div>
-        )}
+          <CardBody className="space-y-4">
+            <div className="seg flex w-full" role="group" aria-label="Sign in or sign up">
+              {(['signin', 'signup'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="flex-1"
+                  aria-pressed={mode === value}
+                  disabled={loading}
+                  onClick={() => {
+                    setMode(value);
+                    setError(null);
+                    setInfo(null);
+                  }}
+                >
+                  {value === 'signin' ? 'Sign in' : 'Sign up'}
+                </button>
+              ))}
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5"
-            >
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              disabled={loading}
-              required
-              className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 disabled:opacity-50 transition"
-            />
-          </div>
+            {error && (
+              <Notice tone="loss" role="alert">
+                {error}
+              </Notice>
+            )}
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5"
-            >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              disabled={loading}
-              required
-              minLength={6}
-              className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-300 dark:border-zinc-700 rounded-xl text-base sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 dark:focus:ring-emerald-400 disabled:opacity-50 transition"
-            />
-          </div>
+            {info && (
+              <Notice tone="gain" role="status">
+                {info}
+              </Notice>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 cursor-pointer shadow-xs transition-all active:scale-[0.99]"
-          >
-            {loading ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Sign Up'}
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="email">
+                  Email address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading}
+                  required
+                />
+              </div>
 
-        <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800/80 text-center">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => {
-              setMode(mode === 'signin' ? 'signup' : 'signin');
-              setError(null);
-              setInfo(null);
-            }}
-            className="text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline transition cursor-pointer disabled:opacity-50"
-          >
-            {mode === 'signin'
-              ? "Don't have an account? Sign up"
-              : 'Already have an account? Sign in'}
-          </button>
-        </div>
+              <div>
+                <Label htmlFor="password">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading}
+                  required
+                  minLength={6}
+                />
+                {mode === 'signup' && <FieldHint>At least 6 characters.</FieldHint>}
+              </div>
+
+              <Button variant="primary" size="lg" block type="submit" disabled={loading}>
+                {loading ? 'Please wait\u2026' : mode === 'signin' ? 'Sign in' : 'Create account'}
+              </Button>
+            </form>
+          </CardBody>
+
+          <CardFooter className="text-center">
+            Just looking?{' '}
+            <ButtonLink variant="link" size="sm" href="/">
+              Explore the sample book
+            </ButtonLink>{' '}
+            without an account.
+          </CardFooter>
+        </Card>
       </div>
-    </main>
+    </PageShell>
   );
 }
