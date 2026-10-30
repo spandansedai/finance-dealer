@@ -1288,6 +1288,15 @@ export default function ExpensesPage() {
                         totalItems !== activeTransactions.length ? ` (filtered from ${activeTransactions.length})` : ''
                       }`}
                 </CardSubtitle>
+                {userId && (
+                  <CardSubtitle>
+                    Kept for this month and last. Older entries are cleared on the 1st, with
+                    balances carried forward.{' '}
+                    <ButtonLink variant="link" size="xs" href="/privacy#retention">
+                      Details
+                    </ButtonLink>
+                  </CardSubtitle>
+                )}
               </div>
 
               {/* Filter Tabs */}

@@ -35,11 +35,17 @@ CREATE TABLE IF NOT EXISTS public.holdings (
   company_name TEXT,
   shares NUMERIC NOT NULL CHECK (shares > 0),
   average_purchase_price NUMERIC NOT NULL CHECK (average_purchase_price >= 0),
+  -- Total paid for the shares held, charges included; NULL for older rows.
+  total_cost NUMERIC CHECK (total_cost IS NULL OR total_cost >= 0),
   current_price NUMERIC NOT NULL CHECK (current_price >= 0),
   sector TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Existing databases: add total_cost (see migrations/20261030_add_holding_total_cost.sql).
+ALTER TABLE public.holdings
+  ADD COLUMN IF NOT EXISTS total_cost NUMERIC CHECK (total_cost IS NULL OR total_cost >= 0);
 
 ALTER TABLE public.holdings ENABLE ROW LEVEL SECURITY;
 

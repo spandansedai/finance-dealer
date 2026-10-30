@@ -22,6 +22,7 @@ import {
   buildDemoTransactions,
   buildDemoTransfers,
 } from '@/lib/guest/demoData';
+import { calculateHoldingCost } from '@/lib/calculations/finance';
 
 /** Temporary salary-planning data kept only in guest-mode React memory. */
 export interface SalaryProfileDraft {
@@ -225,14 +226,19 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
     setGuestHoldings((prev) => {
       const existing = prev.find((h) => h.symbol === buy.symbol);
       if (existing) {
-        const combinedShares = existing.shares * existing.averagePurchasePrice + buy.shares * buy.pricePerShare;
-        const combinedInvested = existing.shares * existing.averagePurchasePrice + buy.totalPurchasePrice;
+        const combinedShares = existing.shares + buy.shares;
+        // Buy price stays a per-share trade price (blended by quantity); cost is
+        // what was actually paid, charges included.
+        const combinedAvgPrice =
+          (existing.shares * existing.averagePurchasePrice + buy.shares * buy.pricePerShare) / combinedShares;
+        const combinedCost = calculateHoldingCost(existing) + buy.totalPurchasePrice;
         return prev.map((h) =>
           h.id === existing.id
             ? {
                 ...h,
                 shares: combinedShares,
-                averagePurchasePrice: combinedInvested / combinedShares,
+                averagePurchasePrice: combinedAvgPrice,
+                totalCost: combinedCost,
                 currentPrice: buy.currentPrice,
                 sector: h.sector ?? buy.sector,
               }
@@ -244,8 +250,9 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         id: `guest-holding-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         symbol: buy.symbol,
         companyName: buy.companyName,
-        averagePurchasePrice: buy.pricePerShare,
         shares: buy.shares,
+        averagePurchasePrice: buy.pricePerShare,
+        totalCost: buy.totalPurchasePrice,
         currentPrice: buy.currentPrice,
         sector: buy.sector,
       };
@@ -254,23 +261,24 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   /**
-   * Records a sell against an existing guest holding. The average cost per
-   * share of a weighted-average position does not change on a partial sell —
-   * only the quantity (and so total invested) shrinks — so this only needs to
-   * reduce shares, or remove the row entirely on a full exit.
+   * Records a sell against an existing guest holding. The shares sold take
+   * their proportional share of the holding's cost with them; the buy price
+   * per share of what remains is unchanged.
    */
   const sellGuestHolding = (id: string, sharesSold: number, totalSaleProceeds: number): number | null => {
     const holding = guestHoldings.find((h) => h.id === id);
     if (!holding) return null;
 
-    const realizedGain = totalSaleProceeds - sharesSold * holding.averagePurchasePrice;
+    const costPerShare = calculateHoldingCost(holding) / holding.shares;
+    const realizedGain = totalSaleProceeds - sharesSold * costPerShare;
     const remainingShares = holding.shares - sharesSold;
+    const remainingCost = costPerShare * remainingShares;
 
     if (remainingShares <= 0) {
       setGuestHoldings((prev) => prev.filter((h) => h.id !== id));
     } else {
       setGuestHoldings((prev) =>
-        prev.map((h) => (h.id === id ? { ...h, shares: remainingShares } : h))
+        prev.map((h) => (h.id === id ? { ...h, shares: remainingShares, totalCost: remainingCost } : h))
       );
     }
 

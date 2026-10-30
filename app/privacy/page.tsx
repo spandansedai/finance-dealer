@@ -126,6 +126,28 @@ const SECTIONS: DocSection[] = [
     ),
   },
   {
+    id: 'retention',
+    title: 'How long we keep your entries',
+    body: (
+      <>
+        <p>
+          FinanceDealer keeps your ledger for the current and previous calendar month. On the 1st of each month, after your monthly summary email has been sent, older income and expense entries, transfers and balance adjustments are permanently deleted.
+        </p>
+        <ul>
+          <li>
+            <strong>Balances are preserved:</strong> before deleting, each account&rsquo;s balance from the removed entries is carried forward as a single locked &ldquo;Opening balance&rdquo; adjustment, so your account balances do not change.
+          </li>
+          <li>
+            <strong>Not affected:</strong> NEPSE holdings, accounts, salary plans and email preferences are kept until you delete them.
+          </li>
+          <li>
+            <strong>Keeping a record:</strong> the monthly summary email is the lasting record of each month; turn it on in Settings.
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
     id: 'updates',
     title: 'Updates to this policy',
     body: (
@@ -151,7 +173,7 @@ export default function PrivacyPolicyPage() {
     <DocPage
       title="Privacy policy"
       note="What FinanceDealer stores, where it lives, who can see it, and how to remove it."
-      updated="October 28, 2026"
+      updated="October 30, 2026"
       sections={SECTIONS}
     />
   );

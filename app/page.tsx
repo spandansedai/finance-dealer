@@ -62,6 +62,7 @@ const rowToHolding = (row: any): StockHolding => ({
   ),
   currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
   sector: row.sector ?? undefined,
+  totalCost: row.total_cost != null ? Number(row.total_cost) : undefined,
 });
 
 const NO_TRANSACTIONS: Transaction[] = [];

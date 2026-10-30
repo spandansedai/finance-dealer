@@ -1,13 +1,18 @@
 /**
  * @file supabase/functions/monthly-summary/index.ts
- * @description Edge Function that emails every user a financial summary of the previous month
- * (income, expenses, savings rate, top spending categories) plus a snapshot of their NEPSE holdings.
- * Triggered on the 1st of each month by pg_cron (see supabase/migrations/*_schedule_monthly_summary.sql).
+ * @description Edge Function that emails a financial summary of the previous English (Gregorian)
+ * month (income, expenses, savings rate, top spending categories) plus a snapshot of NEPSE holdings,
+ * to every user who turned on summary emails with the "Monthly" schedule in Settings.
+ * Triggered at 03:00 UTC (08:45 Nepal time) on the 1st of each month by pg_cron
+ * (see supabase/migrations/*_schedule_monthly_summary.sql). Old ledger data is pruned an hour
+ * later (see *_prune_old_ledger_data.sql), after this has read the month it reports on.
  *
  * Required secrets (`supabase secrets set ...`):
  *   RESEND_API_KEY  - Resend API key (re_...)
  *   RESEND_FROM     - Sender, e.g. "Finance Dealer <reports@yourdomain.com>" (domain must be verified in Resend)
  *   CRON_SECRET     - Shared secret; callers must send it in the `x-cron-secret` header
+ *   APP_URL         - Optional. Public site URL, e.g. https://example.vercel.app, used for the
+ *                     "manage email settings" link. Without it the email names the Settings page.
  *
  * Request body (optional JSON):
  *   { "dryRun": true }          - Build summaries but don't send; returns them in the response
@@ -31,6 +36,7 @@ interface HoldingRow {
   company_name: string | null;
   shares: number | string | null;
   average_purchase_price: number | string | null;
+  total_cost: number | string | null;
   current_price: number | string | null;
 }
 
@@ -98,7 +104,8 @@ function buildSummary(email: string, month: string, txs: TransactionRow[], holdi
   let currentValue = 0;
   for (const h of holdings) {
     const shares = Number(h.shares) || 0;
-    invested += shares * (Number(h.average_purchase_price) || 0);
+    // Cost is what was actually paid; older rows without it fall back to shares × buy price.
+    invested += h.total_cost != null ? Number(h.total_cost) || 0 : shares * (Number(h.average_purchase_price) || 0);
     currentValue += shares * (Number(h.current_price) || 0);
   }
 
@@ -125,7 +132,7 @@ function buildSummary(email: string, month: string, txs: TransactionRow[], holdi
   };
 }
 
-function renderEmail(s: UserSummary): string {
+function renderEmail(s: UserSummary, appUrl: string | null): string {
   const row = (label: string, value: string, color = "#18181b") =>
     `<tr><td style="padding:6px 0;color:#52525b">${label}</td><td style="padding:6px 0;text-align:right;font-weight:600;color:${color}">${value}</td></tr>`;
   const signed = (n: number) => (n >= 0 ? "#16a34a" : "#dc2626");
@@ -161,7 +168,11 @@ function renderEmail(s: UserSummary): string {
     <h2 style="font-size:15px;color:#18181b;margin:20px 0 4px">Portfolio (as of today)</h2>
     <table style="width:100%;font-size:14px;border-collapse:collapse">${portfolio}</table>
   </div>
-  <p style="text-align:center;color:#a1a1aa;font-size:12px">Sent monthly by Finance Dealer.</p>
+  <p style="text-align:center;color:#a1a1aa;font-size:12px">Sent monthly by Finance Dealer because you turned on summary emails.<br>${
+    appUrl
+      ? `<a href="${escapeHtml(appUrl)}/settings" style="color:#71717a">Change or turn off these emails</a>`
+      : "To stop them, switch off \"Send recurring reports\" in Settings."
+  }</p>
 </div></body></html>`;
 }
 
@@ -226,9 +237,18 @@ Deno.serve(async (req) => {
     }
     if (data.users.length < 1000) break;
   }
-  const targets = body.onlyEmail
-    ? users.filter((u) => u.email.toLowerCase() === body.onlyEmail!.toLowerCase())
-    : users;
+  // Only people who switched on summary emails with the monthly schedule in Settings.
+  const { data: prefs, error: prefsError } = await supabase
+    .from("user_email_preferences")
+    .select("user_id")
+    .eq("enabled", true)
+    .eq("frequency", "monthly");
+  if (prefsError) return json({ error: `user_email_preferences failed: ${prefsError.message}` }, 500);
+  const optedIn = new Set((prefs ?? []).map((p) => p.user_id as string));
+
+  const targets = users
+    .filter((u) => optedIn.has(u.id))
+    .filter((u) => !body.onlyEmail || u.email.toLowerCase() === body.onlyEmail.toLowerCase());
 
   const [transactions, holdings] = await Promise.all([
     fetchAll<TransactionRow>((a, b) =>
@@ -237,7 +257,7 @@ Deno.serve(async (req) => {
     ),
     fetchAll<HoldingRow>((a, b) =>
       supabase.from("holdings")
-        .select("user_id, symbol, company_name, shares, average_purchase_price, current_price")
+        .select("user_id, symbol, company_name, shares, average_purchase_price, total_cost, current_price")
         .order("id").range(a, b)
     ),
   ]);
@@ -253,28 +273,46 @@ Deno.serve(async (req) => {
 
   if (body.dryRun) return json({ month, users: targets.length, summaries });
 
-  // Resend's batch endpoint accepts up to 100 emails per request.
-  const results: { sent: number; failed: { status: number; error: string }[] } = { sent: 0, failed: [] };
-  for (let i = 0; i < summaries.length; i += 100) {
-    const chunk = summaries.slice(i, i + 100);
-    const res = await fetch("https://api.resend.com/emails/batch", {
+  const appUrl = Deno.env.get("APP_URL")?.replace(/\/+$/, "") || null;
+  const toEmail = (s: UserSummary) => ({
+    from,
+    to: [s.email],
+    subject: `Your ${monthLabel(month)} financial summary`,
+    html: renderEmail(s, appUrl),
+  });
+  const post = (url: string, payload: unknown, idempotencyKey: string) =>
+    fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": `monthly-summary-${month}-${i}`,
+        "Idempotency-Key": idempotencyKey,
       },
-      body: JSON.stringify(chunk.map((s) => ({
-        from,
-        to: [s.email],
-        subject: `Your ${monthLabel(month)} financial summary`,
-        html: renderEmail(s),
-      }))),
+      body: JSON.stringify(payload),
     });
+
+  // Resend's batch endpoint accepts up to 100 emails per request, but rejects the whole
+  // batch if any one recipient is refused. On a failed batch, fall back to sending each
+  // email on its own so one bad address can't stop everyone else's summary.
+  const results: { sent: number; failed: { email?: string; status: number; error: string }[] } = { sent: 0, failed: [] };
+  for (let i = 0; i < summaries.length; i += 100) {
+    const chunk = summaries.slice(i, i + 100);
+    const res = await post("https://api.resend.com/emails/batch", chunk.map(toEmail), `monthly-summary-${month}-${i}`);
     if (res.ok) {
       results.sent += chunk.length;
-    } else {
-      results.failed.push({ status: res.status, error: await res.text() });
+      continue;
+    }
+    const batchError = await res.text();
+    if (chunk.length === 1) {
+      results.failed.push({ email: chunk[0].email, status: res.status, error: batchError });
+      continue;
+    }
+    for (const s of chunk) {
+      // Stay under Resend's default rate limit of 2 requests per second.
+      await new Promise((r) => setTimeout(r, 600));
+      const single = await post("https://api.resend.com/emails", toEmail(s), `monthly-summary-${month}-${s.email}`);
+      if (single.ok) results.sent += 1;
+      else results.failed.push({ email: s.email, status: single.status, error: await single.text() });
     }
   }
 

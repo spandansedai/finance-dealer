@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { LedgerRow } from '@/components/LedgerRow';
 import { StockHolding } from '@/types';
 import {
+  calculateHoldingCost,
   calculatePortfolioAnalytics,
   formatNepaliCurrency,
   formatNepaliNumber,
@@ -59,6 +60,7 @@ const rowToHolding = (row: any): StockHolding => ({
   ),
   currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
   sector: row.sector ?? undefined,
+  totalCost: row.total_cost != null ? Number(row.total_cost) : undefined,
 });
 
 const NO_HOLDINGS: StockHolding[] = [];
@@ -309,14 +311,18 @@ export default function PortfolioPage() {
 
       if (existing) {
         const combinedShares = existing.shares + parsedShares;
+        // Buy price stays a per-share trade price (blended by quantity); cost is
+        // what was actually paid, charges included.
         const combinedAvgPrice =
           (existing.shares * existing.averagePurchasePrice + parsedShares * parsedPricePerShare) / combinedShares;
+        const combinedCost = calculateHoldingCost(existing) + parsedTotalPrice;
 
         const { error } = await supabase
           .from('holdings')
           .update({
             shares: combinedShares,
             average_purchase_price: combinedAvgPrice,
+            total_cost: combinedCost,
             current_price: seedCurrentPrice,
             sector: existing.sector ?? finalSector,
           })
@@ -335,6 +341,7 @@ export default function PortfolioPage() {
                   ...h,
                   shares: combinedShares,
                   averagePurchasePrice: combinedAvgPrice,
+                  totalCost: combinedCost,
                   currentPrice: seedCurrentPrice,
                   sector: h.sector ?? finalSector,
                 }
@@ -350,6 +357,7 @@ export default function PortfolioPage() {
             company_name: finalCompanyName,
             shares: parsedShares,
             average_purchase_price: parsedPricePerShare,
+            total_cost: parsedTotalPrice,
             current_price: seedCurrentPrice,
             sector: finalSector,
           })
@@ -427,8 +435,11 @@ export default function PortfolioPage() {
       return;
     }
 
-    const realizedGain = parsedProceeds - parsedShares * holding.averagePurchasePrice;
+    // The shares sold carry their proportional share of the holding's cost.
+    const costPerShare = calculateHoldingCost(holding) / holding.shares;
+    const realizedGain = parsedProceeds - parsedShares * costPerShare;
     const remainingShares = holding.shares - parsedShares;
+    const remainingCost = costPerShare * remainingShares;
 
     if (userId) {
       setSubmitting(true);
@@ -444,7 +455,7 @@ export default function PortfolioPage() {
       } else {
         const { error } = await supabase
           .from('holdings')
-          .update({ shares: remainingShares })
+          .update({ shares: remainingShares, total_cost: remainingCost })
           .eq('id', holding.id);
         setSubmitting(false);
         if (error) {
@@ -452,7 +463,9 @@ export default function PortfolioPage() {
           return;
         }
         setDbHoldings((prev) =>
-          prev.map((h) => (h.id === holding.id ? { ...h, shares: remainingShares } : h))
+          prev.map((h) =>
+            h.id === holding.id ? { ...h, shares: remainingShares, totalCost: remainingCost } : h
+          )
         );
       }
     } else {
@@ -813,8 +826,7 @@ export default function PortfolioPage() {
                   </AffixField>
                   <FieldHint>
                     Everything actually debited — shares &times; price per share, plus broker
-                    commission, DP and SEBON fees. The average cost per share is worked out from
-                    this.
+                    commission, DP and SEBON fees. This is recorded as the holding&rsquo;s cost.
                   </FieldHint>
                 </div>
 
@@ -1198,14 +1210,14 @@ export default function PortfolioPage() {
         <CardBody>
           <dl className="ledger">
             <div className="ledger-row">
-              <dt className="lbl">Buy Price</dt>
+              <dt className="lbl">Buy price</dt>
               <span className="leader" aria-hidden="true" />
-              <dd className="fig fig-sm">price per share</dd>
+              <dd className="fig fig-sm">price per share you traded at</dd>
             </div>
             <div className="ledger-row">
               <dt className="lbl">Cost</dt>
               <span className="leader" aria-hidden="true" />
-              <dd className="fig fig-sm">total purchase price</dd>
+              <dd className="fig fig-sm">total purchase price, charges included</dd>
             </div>
             <div className="ledger-row">
               <dt className="lbl">Value</dt>
@@ -1225,7 +1237,7 @@ export default function PortfolioPage() {
             <div className="ledger-row">
               <dt className="lbl">Realised P/L on a sale</dt>
               <span className="leader" aria-hidden="true" />
-              <dd className="fig fig-sm">sale proceeds &minus; (shares sold &times; average buy price)</dd>
+              <dd className="fig fig-sm">sale proceeds &minus; cost of the shares sold</dd>
             </div>
           </dl>
         </CardBody>

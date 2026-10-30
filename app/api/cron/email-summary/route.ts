@@ -1,9 +1,11 @@
 /**
  * @file app/api/cron/email-summary/route.ts
- * @description Scheduled Cron Job API endpoint for dispatching automated financial summaries.
- * Designed to run daily on Vercel Cron (or external schedulers). Inspects user preferences,
- * determines who is due for a weekly or monthly digest, computes their financial metrics using
- * the pure calculation engine in lib/calculations/finance.ts, and delivers the summary via Resend.
+ * @description Scheduled Cron Job API endpoint for the weekly financial digest.
+ * Runs daily on Vercel Cron. Sends to users who chose the weekly schedule in Settings, once every
+ * 7 days, covering the last 7 days of entries plus a portfolio snapshot.
+ *
+ * Monthly summaries are not sent from here: the Supabase Edge Function `monthly-summary` sends
+ * them on the 1st of each English month, covering the previous month.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,31 +24,27 @@ import { EmailFrequency, StockHolding, SummaryEmailReportData, Transaction } fro
 export const dynamic = 'force-dynamic';
 
 /**
- * Validates request authorization.
- * Allows Vercel Cron automatic header `x-vercel-cron` or `Authorization: Bearer <CRON_SECRET>`.
+ * Validates request authorization: `Authorization: Bearer <CRON_SECRET>`, which Vercel Cron
+ * sends automatically when the CRON_SECRET environment variable is set. Headers such as
+ * `x-vercel-cron` are not trusted, since any caller can send them. Without CRON_SECRET the
+ * route is only open in local development.
  */
 function isAuthorized(request: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET;
 
-  // In local development or if CRON_SECRET is not configured, permit testing
   if (!cronSecret) {
-    return true;
+    return process.env.NODE_ENV !== 'production';
   }
 
-  // Check Vercel Cron header
-  const isVercelCron = Boolean(request.headers.get('x-vercel-cron'));
-  if (isVercelCron) {
-    return true;
-  }
-
-  // Check Bearer authorization header
   const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring(7).trim();
-    return token === cronSecret;
-  }
+  return authHeader === `Bearer ${cronSecret}`;
+}
 
-  return false;
+/** YYYY-MM-DD for the day `days` days before today, in Nepal time. */
+function daysAgoInNepal(days: number): string {
+  const NPT_OFFSET_MS = (5 * 60 + 45) * 60 * 1000;
+  const local = new Date(Date.now() + NPT_OFFSET_MS - days * 24 * 60 * 60 * 1000);
+  return local.toISOString().slice(0, 10);
 }
 
 /**
@@ -88,6 +86,7 @@ function rowToHolding(row: any): StockHolding {
     ),
     currentPrice: Number(row.current_price ?? row.currentPrice ?? 0),
     sector: row.sector ?? undefined,
+    totalCost: row.total_cost != null ? Number(row.total_cost) : undefined,
   };
 }
 
@@ -145,11 +144,12 @@ async function processCronJob(request: NextRequest) {
   };
 
   try {
-    // 1. Fetch all opted-in preferences
+    // 1. Fetch users opted in to the weekly digest (monthly is sent by the Supabase function)
     const { data: preferences, error: prefError } = await adminSupabase
       .from('user_email_preferences')
       .select('*')
-      .eq('enabled', true);
+      .eq('enabled', true)
+      .eq('frequency', 'weekly');
 
     if (prefError) {
       console.error('[Cron Job] Failed to fetch email preferences:', prefError);
@@ -164,7 +164,7 @@ async function processCronJob(request: NextRequest) {
 
     // 2. Iterate through each opted-in user
     for (const pref of optedInList) {
-      const frequency = (pref.frequency || 'weekly') as EmailFrequency;
+      const frequency: EmailFrequency = 'weekly';
       const isDue = isUserDue(frequency, pref.last_sent_at);
 
       if (!isDue) {
@@ -180,7 +180,9 @@ async function processCronJob(request: NextRequest) {
           adminSupabase
             .from('transactions')
             .select('id, type, amount, category, description, date')
-            .eq('user_id', pref.user_id),
+            .eq('user_id', pref.user_id)
+            // The last 7 days, today included.
+            .gt('date', daysAgoInNepal(7)),
           adminSupabase
             .from('holdings')
             .select('*')

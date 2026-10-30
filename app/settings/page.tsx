@@ -162,14 +162,14 @@ export default function SettingsPage() {
     setMessage(null);
 
     try {
+      const { data: session } = await supabase.auth.getSession();
+      const accessToken = session.session?.access_token;
+      if (!accessToken) throw new Error('Please sign in again.');
+
       const res = await fetch('/api/email/test', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          frequency,
-          userId,
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ frequency }),
       });
 
       const data = await res.json();
@@ -305,7 +305,7 @@ export default function SettingsPage() {
                       <span>
                         <span className="block text-body font-semibold text-ink">Weekly digest</span>
                         <span className="mt-0.5 block text-xs text-ink-soft">
-                          Every 7 days, with week-to-date cash flow and portfolio updates.
+                          Every 7 days, covering the last 7 days of entries plus your portfolio.
                         </span>
                       </span>
                     </label>
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                       <span>
                         <span className="block text-body font-semibold text-ink">Monthly summary</span>
                         <span className="mt-0.5 block text-xs text-ink-soft">
-                          Once a month, with a full breakdown of income, expenses and gains.
+                          On the 1st of each month, covering the whole previous month.
                         </span>
                       </span>
                     </label>
