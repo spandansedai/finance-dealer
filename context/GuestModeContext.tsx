@@ -79,6 +79,7 @@ interface GuestModeContextType {
     companyName: string;
     shares: number;
     totalPurchasePrice: number;
+    pricePerShare: number;
     currentPrice: number;
     sector?: string;
   }) => void;
@@ -217,13 +218,14 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
     companyName: string;
     shares: number;
     totalPurchasePrice: number;
+    pricePerShare: number;
     currentPrice: number;
     sector?: string;
   }) => {
     setGuestHoldings((prev) => {
       const existing = prev.find((h) => h.symbol === buy.symbol);
       if (existing) {
-        const combinedShares = existing.shares + buy.shares;
+        const combinedShares = existing.shares * existing.averagePurchasePrice + buy.shares * buy.pricePerShare;
         const combinedInvested = existing.shares * existing.averagePurchasePrice + buy.totalPurchasePrice;
         return prev.map((h) =>
           h.id === existing.id
@@ -242,8 +244,8 @@ export function GuestModeProvider({ children }: { children: React.ReactNode }) {
         id: `guest-holding-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         symbol: buy.symbol,
         companyName: buy.companyName,
+        averagePurchasePrice: buy.pricePerShare,
         shares: buy.shares,
-        averagePurchasePrice: buy.totalPurchasePrice / buy.shares,
         currentPrice: buy.currentPrice,
         sector: buy.sector,
       };
