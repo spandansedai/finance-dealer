@@ -301,7 +301,7 @@ export default function PortfolioPage() {
     const meta = liveMeta[cleanSymbol];
     const finalCompanyName = companyName.trim() || meta?.companyName || `${cleanSymbol} Security`;
     const finalSector = meta?.sector || undefined;
-    const seedCurrentPrice = livePrices[cleanSymbol] ?? parsedTotalPrice / parsedShares;
+    const seedCurrentPrice = livePrices[cleanSymbol] ?? parsedPricePerShare;
     const existing = activeHoldings.find((h) => h.symbol === cleanSymbol);
 
     if (userId) {
@@ -310,7 +310,7 @@ export default function PortfolioPage() {
       if (existing) {
         const combinedShares = existing.shares + parsedShares;
         const combinedAvgPrice =
-          (existing.shares * existing.averagePurchasePrice + parsedTotalPrice) / combinedShares;
+          (existing.shares * existing.averagePurchasePrice + parsedShares * parsedPricePerShare) / combinedShares;
 
         const { error } = await supabase
           .from('holdings')
@@ -349,7 +349,7 @@ export default function PortfolioPage() {
             symbol: cleanSymbol,
             company_name: finalCompanyName,
             shares: parsedShares,
-            average_purchase_price: parsedTotalPrice / parsedShares,
+            average_purchase_price: parsedPricePerShare,
             current_price: seedCurrentPrice,
             sector: finalSector,
           })
@@ -370,6 +370,7 @@ export default function PortfolioPage() {
         companyName: finalCompanyName,
         shares: parsedShares,
         totalPurchasePrice: parsedTotalPrice,
+        pricePerShare: parsedPricePerShare,
         currentPrice: seedCurrentPrice,
         sector: finalSector,
       });
@@ -1197,14 +1198,14 @@ export default function PortfolioPage() {
         <CardBody>
           <dl className="ledger">
             <div className="ledger-row">
-              <dt className="lbl">Average buy price</dt>
+              <dt className="lbl">Buy Price</dt>
               <span className="leader" aria-hidden="true" />
-              <dd className="fig fig-sm">total purchase price &divide; shares</dd>
+              <dd className="fig fig-sm">price per share</dd>
             </div>
             <div className="ledger-row">
               <dt className="lbl">Cost</dt>
               <span className="leader" aria-hidden="true" />
-              <dd className="fig fig-sm">shares &times; average buy price</dd>
+              <dd className="fig fig-sm">total purchase price</dd>
             </div>
             <div className="ledger-row">
               <dt className="lbl">Value</dt>
