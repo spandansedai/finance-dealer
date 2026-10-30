@@ -185,6 +185,12 @@ export interface StockHolding {
   buyPrice?: number;
   isLivePrice?: boolean;
   savedPrice?: number;
+  /**
+   * Total paid for the shares still held, including broker commission, DP and
+   * SEBON fees. When absent (holdings saved before this was recorded) cost
+   * falls back to shares × averagePurchasePrice.
+   */
+  totalCost?: number;
 }
 
 /**

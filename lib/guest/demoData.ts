@@ -125,14 +125,45 @@ export function buildDemoAdjustments(): BalanceAdjustment[] {
   ];
 }
 
+/**
+ * Approximate total paid for a NEPSE buy: the trade value plus broker
+ * commission (0.36% up to Rs 50,000, 0.33% above), the 0.015% SEBON fee and
+ * the Rs 25 DP charge. Used so the sample shows cost differing from
+ * shares × buy price, as it does for a real purchase.
+ */
+function withCharges(shares: number, pricePerShare: number): number {
+  const trade = shares * pricePerShare;
+  const commission = trade * (trade <= 50000 ? 0.0036 : 0.0033);
+  return Number((trade + commission + trade * 0.00015 + 25).toFixed(2));
+}
+
 export function buildDemoHoldings(): StockHolding[] {
+  const holding = (
+    n: number,
+    symbol: string,
+    companyName: string,
+    shares: number,
+    pricePerShare: number,
+    currentPrice: number,
+    sector: string
+  ): StockHolding => ({
+    id: `guest-holding-demo-${n}`,
+    symbol,
+    companyName,
+    shares,
+    averagePurchasePrice: pricePerShare,
+    totalCost: withCharges(shares, pricePerShare),
+    currentPrice,
+    sector,
+  });
+
   return [
-    { id: 'guest-holding-demo-1', symbol: 'NABIL', companyName: 'Nabil Bank Limited', shares: 150, averagePurchasePrice: 498, currentPrice: 525, sector: 'Commercial Banks' },
-    { id: 'guest-holding-demo-2', symbol: 'NICA', companyName: 'NIC Asia Bank Limited', shares: 200, averagePurchasePrice: 410, currentPrice: 388, sector: 'Commercial Banks' },
-    { id: 'guest-holding-demo-3', symbol: 'CHCL', companyName: 'Chilime Hydropower Company Limited', shares: 120, averagePurchasePrice: 480, currentPrice: 532, sector: 'Hydro Power' },
-    { id: 'guest-holding-demo-4', symbol: 'UPPER', companyName: 'Upper Tamakoshi Hydropower Limited', shares: 100, averagePurchasePrice: 215, currentPrice: 241, sector: 'Hydro Power' },
-    { id: 'guest-holding-demo-5', symbol: 'NLIC', companyName: 'Nepal Life Insurance Company Limited', shares: 60, averagePurchasePrice: 720, currentPrice: 694, sector: 'Life Insurance' },
-    { id: 'guest-holding-demo-6', symbol: 'HDL', companyName: 'Himalayan Distillery Limited', shares: 20, averagePurchasePrice: 1450, currentPrice: 1612, sector: 'Manufacturing And Processing' },
+    holding(1, 'NABIL', 'Nabil Bank Limited', 150, 498, 525, 'Commercial Banks'),
+    holding(2, 'NICA', 'NIC Asia Bank Limited', 200, 410, 388, 'Commercial Banks'),
+    holding(3, 'CHCL', 'Chilime Hydropower Company Limited', 120, 480, 532, 'Hydro Power'),
+    holding(4, 'UPPER', 'Upper Tamakoshi Hydropower Limited', 100, 215, 241, 'Hydro Power'),
+    holding(5, 'NLIC', 'Nepal Life Insurance Company Limited', 60, 720, 694, 'Life Insurance'),
+    holding(6, 'HDL', 'Himalayan Distillery Limited', 20, 1450, 1612, 'Manufacturing And Processing'),
   ];
 }
 

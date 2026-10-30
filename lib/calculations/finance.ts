@@ -318,6 +318,22 @@ export function calculateHoldingInvested(shares: number, averagePurchasePrice: n
 }
 
 /**
+ * Cost of a holding: the total actually paid (including charges) when it was
+ * recorded, otherwise shares × average buy price for older holdings.
+ *
+ * @param holding - The stock holding.
+ * @returns Cost basis in NPR.
+ */
+export function calculateHoldingCost(holding: Pick<StockHolding, 'shares' | 'units' | 'averagePurchasePrice' | 'buyPrice' | 'totalCost'>): number {
+  if (holding.totalCost != null && Number.isFinite(Number(holding.totalCost))) {
+    return Math.max(0, Number(holding.totalCost));
+  }
+  const shares = Number(holding.shares ?? holding.units) || 0;
+  const avgPrice = Number(holding.averagePurchasePrice ?? holding.buyPrice) || 0;
+  return calculateHoldingInvested(shares, avgPrice);
+}
+
+/**
  * Calculates current market valuation for a stock position: shares * current market price.
  * Clamps negative inputs to 0.
  *
@@ -399,7 +415,7 @@ export function calculateHoldingAnalytics(
   const avgPrice = Number(holding.averagePurchasePrice ?? holding.buyPrice) || 0;
   const currentPrice = Number(holding.currentPrice) || 0;
 
-  const investedAmount = calculateHoldingInvested(shares, avgPrice);
+  const investedAmount = calculateHoldingCost(holding);
   const currentValue = calculateHoldingCurrentValue(shares, currentPrice);
   const profitLoss = calculateHoldingProfitLoss(currentValue, investedAmount);
   const profitLossPercentage = calculateHoldingProfitLossPercentage(profitLoss, investedAmount);
@@ -443,7 +459,7 @@ export function calculatePortfolioAnalytics(holdings: StockHolding[]): Portfolio
     const avgPrice = Number(h.averagePurchasePrice ?? h.buyPrice) || 0;
     const currentPrice = Number(h.currentPrice) || 0;
 
-    const invested = calculateHoldingInvested(shares, avgPrice);
+    const invested = calculateHoldingCost(h);
     const currVal = calculateHoldingCurrentValue(shares, currentPrice);
 
     totalInvested += invested;
